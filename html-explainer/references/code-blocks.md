@@ -2,11 +2,11 @@
 
 ## Qual biblioteca
 
-| | Escolha quando |
-|---|---|
-| **highlight.js** ✅ padrão | É o default desta skill. Uma tag `<script>`, uma de tema, `hljs.highlightAll()` e acabou. Traz ~38 linguagens no build de CDN e detecta sozinho se você não declarar (não deixe detectar — ver abaixo). |
-| **Prism** | Você quer **números de linha**, **destacar linhas específicas** ou **realce de diff** com plugin pronto, sem escrever nada. O preço: cada plugin é mais uma tag `<script>` + `<link>`, e a ordem entre elas importa. |
-| **Shiki** | Você quer exatamente as cores do VS Code e um tema TextMate real. Em arquivo único **não compensa**: é ESM, puxa gramáticas por rede em tempo de execução, e o SRI não cobre o que ele busca depois. Use se o realce fiel for o ponto do documento; caso contrário, não. |
+| | Peso (comprimido, com 1 gramática) | Escolha quando |
+|---|---|---|
+| **highlight.js** ✅ padrão | ~15,6 KiB | É o default desta skill. Uma tag `<script>`, uma de tema, `hljs.highlightAll()` e acabou. Traz ~38 linguagens no build de CDN e é o único dos três que detecta linguagem sozinho (não deixe detectar — ver abaixo). |
+| **Prism** | ~11,7 KiB | Você quer **números de linha**, **destacar linhas específicas** ou **botão de copiar** com plugin pronto, sem escrever nada. O preço: cada plugin é mais uma tag `<script>`/`<link>`, e a ordem entre elas importa. |
+| **Shiki** | ~280 KiB | Praticamente nunca, aqui. Ele foi feito para rodar em build e emitir HTML com estilo embutido; no navegador, ~231 dos ~280 KiB são o WASM do Oniguruma. Numa medição pública, destacar o mesmo trecho leva 3,5–5,0 ms contra 1,1–1,4 ms do highlight.js. Use só se as cores exatas do VS Code forem o ponto do documento. |
 
 Não misture dois no mesmo arquivo: ambos varrem `pre code` e o segundo destaca o HTML que o primeiro
 gerou.
@@ -34,7 +34,18 @@ transforma `&lt;` em `&amp;lt;`.
 
 Um `<` não escapado faz o navegador abrir uma tag ali: o resto do bloco some da tela, o layout quebra
 em silêncio, e o highlight.js grita no console *"One of your code blocks includes unescaped HTML"*.
-**Esse aviso no console é o sintoma — trate como erro.**
+**Esse aviso no console é o sintoma — trate como erro.** Não é só cosmético: markup cru dentro de um
+bloco de código é executado como HTML/JS de verdade, o que torna isto um vetor de XSS quando o
+conteúdo vem de fora.
+
+Dá para transformar o aviso em erro de fato, e é uma boa ideia enquanto você escreve:
+
+```js
+hljs.configure({ throwUnescapedHTML: true });   // estoura em vez de só avisar
+hljs.highlightAll();
+```
+
+(`ignoreUnescapedHTML: true` faz o oposto — cala o aviso. Só use se souber exatamente por quê.)
 
 Use o helper em vez de escapar à mão:
 
@@ -99,9 +110,20 @@ if (navigator.clipboard && window.isSecureContext) { … }
 
 **Testar `navigator.clipboard` antes de usar é obrigatório.** Fora de contexto seguro o objeto é
 `undefined`, e `navigator.clipboard.writeText(t)` estoura `TypeError` — exceção síncrona, que
-`.catch()` de promise não pega. Onde isso acontece de verdade: `http://` num IP de rede local
-(`http://192.168.0.10/doc.html`). Em `file://` o Chromium **é** contexto seguro e a API existe
-(verificado); ainda assim a escrita pode ser recusada em runtime — daí o segundo nível:
+`.catch()` de promise não pega.
+
+Vale a pena saber exatamente onde isso acontece, porque quase todo tutorial erra:
+
+| Origem | Contexto seguro? |
+|---|---|
+| `https://…` | sim |
+| `http://localhost`, `http://127.0.0.1`, `http://*.localhost` | **sim** — são tratadas como confiáveis mesmo sem TLS |
+| `file:///home/voce/doc.html` | **sim** no Chromium (`isSecureContext === true`, verificado) |
+| `http://192.168.0.10/doc.html` | **não** — é aqui que a API some |
+
+Ou seja: o modo de falha real é o documento servido por HTTP simples num IP de rede — mandar o
+arquivo para o time por um `python -m http.server` na sua máquina. Mesmo onde a API existe, a
+escrita ainda pode ser recusada em runtime — daí o segundo nível:
 
 ```js
 navigator.clipboard.writeText(text).then(ok, () => legacyCopy(text));
@@ -146,7 +168,23 @@ mente.
 ```
 
 No Prism, o botão exige **toolbar + copy-to-clipboard, nessa ordem** — o plugin de cópia se registra
-na toolbar e não faz nada se ela ainda não existir.
+na toolbar e não faz nada se ela ainda não existir. São três tags, não uma:
+
+```html
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/plugins/toolbar/prism-toolbar.min.css"
+      integrity="sha384-EUzJ34/1CCeefTGUKLgvA5Z/vYIwi+Jyu8aAaCfFDxfwZ3Xs3OfkkIeegsLRM11e" crossorigin="anonymous">
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/plugins/toolbar/prism-toolbar.min.js"
+        integrity="sha384-jC1G68eGEXJpPwMDNqyIUQsQlcUCdCU+a7GGuoV4TUZvM1gLYTMJUDvqBnxtZLWA" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"
+        integrity="sha384-ZdEfx8sYX8i4IVXU1tUbqwOp4PBUCCmnpagpiHchnstXkEczkzPfUd9fvBrntM+F" crossorigin="anonymous"></script>
+```
+
+Ele não tem objeto de configuração: os rótulos vêm de `data-*`, e o plugin sobe a árvore procurando
+— então **uma declaração no `<body>` traduz a página inteira**:
+
+```html
+<body data-prismjs-copy="Copiar" data-prismjs-copy-success="Copiado!" data-prismjs-copy-error="Use Ctrl+C">
+```
 
 Nos dois casos o botão sai com o CSS deles, não com o do Bootstrap. Se importa que o botão pareça
 parte do documento, fique com o do template.
@@ -197,5 +235,7 @@ existia. Para um bloco novo:
 hljs.highlightElement(novoCode);
 ```
 
-Chamar `highlightElement` duas vezes no mesmo elemento dá aviso de "já destacado" e produz `<span>`
-dentro de `<span>` — o `data-highlighted="yes"` que ele grava serve justamente para você checar antes.
+Depois de destacar, o highlight.js grava `data-highlighted="yes"` no elemento. Da versão 11.9.0 em
+diante ele usa essa marca para **sair na hora** se você chamar `highlightElement` de novo no mesmo
+bloco — sem duplicar `<span>`, só um aviso no console. Ainda assim, filtre por
+`:not([data-highlighted])` ao varrer: o aviso polui e some o sinal dos erros que importam.

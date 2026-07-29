@@ -40,7 +40,8 @@ Chart.js o equivalente é `chart.resize()` no `shown.bs.tab`; para tabela elást
 
 **O highlight.js NÃO precisa disso.** Ele reescreve texto, não mede layout: verificado, um bloco em
 aba escondida sai com `data-highlighted="yes"` e as cores certas. Não copie "re-highlight no
-`shown.bs.tab`" de tutorial — é ruído, e chamar `highlightElement` duas vezes gera `<span>` aninhado.
+`shown.bs.tab`" de tutorial — é ruído puro. (Da versão 11.9.0 em diante, a segunda chamada
+simplesmente sai fora graças ao `data-highlighted`; o estrago é só o aviso no console.)
 
 ### E o irmão dela: registrar o listener tarde demais
 

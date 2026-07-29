@@ -193,6 +193,27 @@ Melhor que aba para "o detalhe que quase ninguém quer".
 </div>
 ```
 
+## Impressão: use os utilitários, não uma classe sua
+
+O Bootstrap 5.3 já tem uma família `d-print-*` (`d-print-none`, `d-print-block`, `d-print-inline`,
+`d-print-flex`, `d-print-table`…). Combine com as de tela para os três padrões que documento precisa:
+
+| Quero | Classe |
+|---|---|
+| Some no papel (navbar, botão, aviso interativo) | `d-print-none` |
+| Só no papel (rodapé com URL, aviso de versão impressa) | `d-none d-print-block` |
+| Aparece nos dois | (nada) |
+
+O bloco `@media print` do template continua necessário para uma coisa só, que utilitário nenhum faz:
+**desdobrar os `.tab-pane` escondidos**.
+
+## Callout não existe no Bootstrap distribuído
+
+Você vai ver `.callout`, `.callout-info` e `.callout-warning` na documentação do próprio Bootstrap —
+mas eles são um componente que o time escreveu **para o site de docs**, e não estão no
+`bootstrap.min.css`. Usar num documento seu produz um `<div>` sem estilo nenhum. Para destaque, é
+`alert`.
+
 ## HTML puro que já resolve
 
 Não existe componente Bootstrap para isso porque o HTML já tem:

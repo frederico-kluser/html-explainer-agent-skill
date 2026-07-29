@@ -47,7 +47,8 @@
 
   /* Impressão/PDF: abre TODAS as abas, senão o papel sai com uma só. */
   @media print {
-    .nav-tabs, .copy-btn, .no-print { display: none !important; }
+    /* .d-print-none do Bootstrap resolve o resto: marque com ela o que é só de tela. */
+    .nav-tabs, .copy-btn { display: none !important; }
     .tab-content > .tab-pane { display: block !important; opacity: 1 !important; page-break-inside: avoid; }
     .tab-pane::before { content: attr(data-print-title); display: block;
                         font-size: 1.25rem; font-weight: 600; margin: 1.5rem 0 .5rem; }
