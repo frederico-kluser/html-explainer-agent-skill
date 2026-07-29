@@ -698,7 +698,11 @@ document.querySelectorAll('[data-bs-toggle="tab"]').forEach(t =&gt; {
     if (!pane) return;
     var trigger = document.querySelector('[data-bs-target="#' + CSS.escape(pane.id) + '"]');
     if (trigger) bootstrap.Tab.getOrCreateInstance(trigger).show();
-    if (target !== pane) requestAnimationFrame(function () { target.scrollIntoView(); });
+    // O navegador já tentou rolar até o alvo — e falhou, porque naquele instante o
+    // painel ainda era display:none. Agora que apareceu, role de novo: sem isto a
+    // página abre num scroll intermediário, com as abas escondidas atrás da navbar.
+    var scrollTo = target !== pane ? target : (trigger && trigger.closest('[role="tablist"]')) || pane;
+    requestAnimationFrame(function () { scrollTo.scrollIntoView({ block: 'start' }); });
   }
 
   tabs.forEach(function (t) {

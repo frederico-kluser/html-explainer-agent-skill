@@ -27,8 +27,14 @@ if (has('help') || has('h')) {
   process.exit(0);
 }
 
-const file = argv.find((a) => !a.startsWith('--') && argv[argv.indexOf(a) - 1] !== '--lang'
-                                                  && argv[argv.indexOf(a) - 1] !== '--lines');
+// Varre por posição, não por valor: `--lang ts` e um arquivo chamado `ts` coexistem.
+const TAKES_VALUE = ['--lang', '--lines'];
+let file = null;
+for (let i = 0; i < argv.length; i++) {
+  if (TAKES_VALUE.includes(argv[i])) { i++; continue; }
+  if (argv[i].startsWith('--')) continue;
+  if (file === null) file = argv[i];
+}
 
 // Mapa extensão → identificador que o highlight.js entende. O que não estiver aqui
 // passa direto: `--lang` sempre vence.
