@@ -1,0 +1,737 @@
+<!doctype html>
+<!-- Exemplo completo produzido pela skill html-explainer. É ao mesmo tempo a demonstração
+     e a documentação: cada aba usa os padrões que descreve. Abra com duplo clique. -->
+<html lang="pt-BR" data-bs-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Documento HTML de arquivo único, em abas</title>
+
+<link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+      integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB"
+      crossorigin="anonymous">
+<link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css"
+      integrity="sha384-CK2SzKma4jA5H/MXDUU7i1TqZlCFaD4T01vtyDFvPlD97JQyS+IsSh1nI2EFbpyk"
+      crossorigin="anonymous">
+<link rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css"
+      integrity="sha384-wH75j6z1lH97ZOpMOInqhgKzFkAInZPPSPlZpYKYTOqsaizPvhQZmAtLcPKXpLyH"
+      crossorigin="anonymous">
+
+<style>
+  [id] { scroll-margin-top: 5rem; }
+  pre { position: relative; margin-bottom: 1rem; }
+  pre code.hljs { padding-right: 4rem; border-radius: var(--bs-border-radius); font-size: .875rem; }
+  .copy-btn { position: absolute; top: .5rem; right: .5rem; opacity: .4; transition: opacity .15s; }
+  pre:hover .copy-btn, .copy-btn:focus-visible { opacity: 1; }
+
+  /* Abrir o arquivo em #pane-x foca o painel (bom: o leitor de tela cai no conteúdo),
+     e o outline branco do navegador fica gritante. Anel discreto, do tema, no lugar —
+     tirar o indicador por completo quebraria quem navega por teclado. */
+  .tab-pane:focus-visible { outline: 0; box-shadow: 0 0 0 .2rem rgba(var(--bs-emphasis-color-rgb), .15); }
+  @media print {
+    .nav-tabs, .copy-btn, .no-print { display: none !important; }
+    .tab-content > .tab-pane { display: block !important; opacity: 1 !important; page-break-inside: avoid; }
+    .tab-pane::before { content: attr(data-print-title); display: block;
+                        font-size: 1.25rem; font-weight: 600; margin: 1.5rem 0 .5rem; }
+  }
+</style>
+</head>
+
+<body class="bg-body">
+
+<nav class="navbar navbar-expand-lg sticky-top bg-body-tertiary border-bottom">
+  <div class="container" style="max-width: 64rem">
+    <span class="navbar-brand fw-semibold"><i class="bi bi-window-stack me-1"></i>html-explainer</span>
+    <span class="navbar-text small text-body-secondary d-none d-md-inline">um arquivo · sem build · tema escuro</span>
+  </div>
+</nav>
+
+<main class="container py-4" style="max-width: 64rem">
+
+  <header class="mb-4">
+    <h1 class="display-6 fw-semibold">Um arquivo <code>.html</code> explica melhor que um <code>.md</code></h1>
+    <p class="lead text-body-secondary">
+      Quando a explicação tem mais de um eixo, Markdown vira rolagem infinita. Aba é o índice que não
+      sai da tela — e o arquivo continua sendo <strong>um só</strong>, que abre com duplo clique.
+    </p>
+    <div class="d-flex flex-wrap gap-2">
+      <span class="badge text-bg-secondary">Bootstrap 5.3.8</span>
+      <span class="badge text-bg-secondary">highlight.js 11.11.1</span>
+      <span class="badge text-bg-success">sem npm</span>
+      <span class="badge text-bg-secondary">jul/2026</span>
+    </div>
+  </header>
+
+  <div class="alert alert-primary d-flex gap-2" role="alert">
+    <i class="bi bi-info-circle-fill flex-shrink-0"></i>
+    <div>
+      <strong>Isto que você está lendo é a saída da skill.</strong> Todo padrão descrito aqui está
+      em uso nesta própria página — inclusive o botão de copiar no canto de cada bloco e o
+      <code>#hash</code> na URL, que muda quando você troca de aba.
+    </div>
+  </div>
+
+  <ul class="nav nav-tabs" id="doc-tabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="tab-comecar" data-bs-toggle="tab" data-bs-target="#pane-comecar"
+              type="button" role="tab" aria-controls="pane-comecar" aria-selected="true">
+        <i class="bi bi-play-circle me-1"></i>Começar
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="tab-abas" data-bs-toggle="tab" data-bs-target="#pane-abas"
+              type="button" role="tab" aria-controls="pane-abas" aria-selected="false">
+        <i class="bi bi-segmented-nav me-1"></i>Abas
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="tab-codigo" data-bs-toggle="tab" data-bs-target="#pane-codigo"
+              type="button" role="tab" aria-controls="pane-codigo" aria-selected="false">
+        <i class="bi bi-code-slash me-1"></i>Código
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="tab-componentes" data-bs-toggle="tab" data-bs-target="#pane-componentes"
+              type="button" role="tab" aria-controls="pane-componentes" aria-selected="false">
+        <i class="bi bi-grid-1x2 me-1"></i>Componentes
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="tab-armadilhas" data-bs-toggle="tab" data-bs-target="#pane-armadilhas"
+              type="button" role="tab" aria-controls="pane-armadilhas" aria-selected="false">
+        <i class="bi bi-exclamation-triangle me-1"></i>Armadilhas
+        <span class="badge rounded-pill text-bg-danger ms-1">4</span>
+      </button>
+    </li>
+  </ul>
+
+  <div class="tab-content border border-top-0 rounded-bottom p-4" id="doc-tabs-content">
+
+    <!-- ─────────────────────────────────────────────────────── COMEÇAR ── -->
+    <div class="tab-pane fade show active" id="pane-comecar" role="tabpanel"
+         aria-labelledby="tab-comecar" tabindex="0" data-print-title="Começar">
+
+      <h2 class="h4">O documento inteiro cabe nesta estrutura</h2>
+      <p>
+        Três blocos de CDN no <code>&lt;head&gt;</code>, o conteúdo em abas, dois <code>&lt;script&gt;</code>
+        no fim. Nada além disso — sem <code>package.json</code>, sem pasta <code>assets/</code>.
+      </p>
+
+<pre><code class="language-html">&lt;!doctype html&gt;
+&lt;html lang="pt-BR" data-bs-theme="dark"&gt;
+&lt;head&gt;
+  &lt;meta charset="utf-8"&gt;
+  &lt;meta name="color-scheme" content="dark"&gt;
+  &lt;link rel="stylesheet" href="…/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+        integrity="sha384-…" crossorigin="anonymous"&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;ul class="nav nav-tabs" role="tablist"&gt;…&lt;/ul&gt;
+  &lt;div class="tab-content"&gt;…&lt;/div&gt;
+  &lt;script src="…/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-…" crossorigin="anonymous"&gt;&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+
+      <p>Duas coisas no <code>&lt;html&gt;</code> fazem o tema escuro inteiro:</p>
+
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead><tr><th scope="col">Atributo</th><th scope="col">O que faz</th></tr></thead>
+          <tbody>
+            <tr>
+              <th scope="row"><code>data-bs-theme="dark"</code></th>
+              <td>Troca todas as variáveis de cor do Bootstrap. Nenhum CSS seu é necessário.</td>
+            </tr>
+            <tr>
+              <th scope="row"><code>&lt;meta name="color-scheme" content="dark"&gt;</code></th>
+              <td>Vale <em>antes</em> do CSS carregar: mata o flash branco e deixa scrollbar,
+                  <code>&lt;select&gt;</code> e <code>&lt;input&gt;</code> nativos escuros.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="h5 mt-4">Gerando pela skill</h3>
+      <p>O script monta a casca com as abas já pareadas — que é onde o erro costuma nascer:</p>
+
+<pre><code class="language-bash">node ~/.claude/skills/html-explainer/scripts/new-doc.mjs \
+  "Como o cache invalida" ./cache.html \
+  --tabs "Resposta,Como funciona,Armadilhas" --sub "v3 · jul/2026"
+
+# preencha o conteúdo, depois valide:
+node ~/.claude/skills/html-explainer/scripts/check-doc.mjs ./cache.html</code></pre>
+
+      <p>O linter reprova o que o olho não vê. Numa página propositalmente quebrada:</p>
+
+<pre><code class="nohighlight" data-allow-html><span class="text-danger">erro</span>  doc.html:10  aria-controls="#p1" deveria ser "p1" (sem #)
+<span class="text-danger">erro</span>  doc.html:14  o painel ativo #p1 tem .active mas não .show — abre invisível (opacity 0)
+<span class="text-danger">erro</span>  doc.html:15  HTML não escapado dentro de &lt;code&gt; — escape &amp; &lt; &gt; como &amp;amp; &amp;lt; &amp;gt;
+<span class="text-danger">erro</span>  doc.html:4   URL de CDN sem versão — amanhã ela aponta para outro código</code></pre>
+
+      <div class="alert alert-success d-flex gap-2 mb-0" role="alert">
+        <i class="bi bi-check-circle-fill flex-shrink-0"></i>
+        <div>
+          <strong>Teste que fecha o assunto:</strong> feche o editor, ache o arquivo no gerenciador e
+          dê duplo clique. Se abriu bonito sem servidor nenhum, está pronto para virar anexo de e-mail.
+        </div>
+      </div>
+    </div>
+
+    <!-- ────────────────────────────────────────────────────────── ABAS ── -->
+    <div class="tab-pane fade" id="pane-abas" role="tabpanel"
+         aria-labelledby="tab-abas" tabindex="0" data-print-title="Abas">
+
+      <h2 class="h4">Aba é eixo paralelo, não passo a passo</h2>
+      <p>
+        As fatias respondem à mesma pergunta de ângulos diferentes e o leitor escolhe <em>uma</em>.
+        Se ele precisa das três em ordem, não é aba — é seção com <code>&lt;h2&gt;</code>.
+      </p>
+
+      <div class="row g-3 mb-3">
+        <div class="col-md-6">
+          <div class="card h-100 border-success">
+            <div class="card-body">
+              <h3 class="card-title h6 text-success"><i class="bi bi-check-lg"></i> Eixo paralelo</h3>
+              <p class="card-text small text-body-secondary mb-0">
+                <code>curl</code> · <code>Python</code> · <code>TypeScript</code><br>
+                <code>Como era</code> · <code>Como fica</code> · <code>Como migrar</code>
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card h-100 border-danger">
+            <div class="card-body">
+              <h3 class="card-title h6 text-danger"><i class="bi bi-x-lg"></i> Sequência</h3>
+              <p class="card-text small text-body-secondary mb-0">
+                <code>Passo 1</code> · <code>Passo 2</code> · <code>Passo 3</code><br>
+                Isso é rolagem. Ninguém quer clicar para continuar lendo.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h3 class="h5">Os cinco elos do markup</h3>
+      <p>Quebrar qualquer um deixa a aba muda ou abre o painel errado:</p>
+
+<pre><code class="language-html">&lt;ul class="nav nav-tabs" role="tablist"&gt;
+  &lt;li class="nav-item" role="presentation"&gt;
+    &lt;button class="nav-link active" id="tab-a" data-bs-toggle="tab" data-bs-target="#pane-a"
+            type="button" role="tab" aria-controls="pane-a" aria-selected="true"&gt;Rótulo A&lt;/button&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;div class="tab-content"&gt;
+  &lt;div class="tab-pane fade show active" id="pane-a" role="tabpanel"
+       aria-labelledby="tab-a" tabindex="0"&gt;…&lt;/div&gt;
+&lt;/div&gt;</code></pre>
+
+      <ol class="mb-3">
+        <li><code>role="tablist"</code> no <code>&lt;ul&gt;</code>, <code>role="presentation"</code> no <code>&lt;li&gt;</code>.</li>
+        <li><code>role="tab"</code> no gatilho, <code>role="tabpanel"</code> no painel.</li>
+        <li><code>data-bs-target="#pane-a"</code> <strong>com</strong> <code>#</code> ↔
+            <code>aria-controls="pane-a"</code> <strong>sem</strong> <code>#</code>.</li>
+        <li><code>id</code> do gatilho ↔ <code>aria-labelledby</code> do painel.</li>
+        <li>Um gatilho <code>.active</code> e um painel <code>.show.active</code>. Só um.</li>
+      </ol>
+
+      <div class="alert alert-warning d-flex gap-2" role="alert">
+        <i class="bi bi-exclamation-triangle-fill flex-shrink-0"></i>
+        <div>
+          <code>fade</code> exige <code>show</code> <em>e</em> <code>active</code> no painel inicial.
+          Só <code>active</code> renderiza com <code>opacity: 0</code> — a aba abre vazia e parece
+          conteúdo faltando.
+        </div>
+      </div>
+
+      <h3 class="h5">Teclado: já vem pronto</h3>
+      <p>
+        Do Bootstrap 5.2 em diante o <code>tab.js</code> implementa a navegação ARIA no
+        <code>role="tablist"</code>: <kbd>←</kbd> <kbd>→</kbd> andam entre as abas,
+        <kbd>Home</kbd> e <kbd>End</kbd> vão para a primeira e a última. Não escreva
+        <code>keydown</code> próprio — você só vai brigar com o que já existe.
+      </p>
+      <p class="text-body-secondary small">
+        As abas não ativas ficam com <code>tabindex="-1"</code>, então <kbd>Tab</kbd> pula direto da
+        aba ativa para o conteúdo. É o padrão, não um bug.
+      </p>
+
+      <h3 class="h5 mt-4">Aba na URL</h3>
+      <p>
+        Olhe a barra de endereço: o <code>#hash</code> mudou quando você abriu esta aba. Mandar
+        <em>"veja a aba Armadilhas"</em> vira mandar um link. Os dois sentidos, com o detalhe que
+        importa:
+      </p>
+
+<pre><code class="language-js">// escrever: replaceState, nunca location.hash — atribuir o hash faz a página pular
+history.replaceState(null, '', '#' + id);
+
+// ler: o hash pode apontar para o painel OU para um &lt;h2&gt; dentro dele
+const pane = document.querySelector(hash)?.closest('.tab-pane');
+bootstrap.Tab.getOrCreateInstance(trigger).show();</code></pre>
+
+      <p class="mb-0">
+        <code>getOrCreateInstance</code> e não <code>new bootstrap.Tab(el)</code>: uma segunda
+        instância no mesmo elemento gera dois listeners, e o <code>shown.bs.tab</code> dispara em dobro.
+      </p>
+    </div>
+
+    <!-- ──────────────────────────────────────────────────────── CÓDIGO ── -->
+    <div class="tab-pane fade" id="pane-codigo" role="tabpanel"
+         aria-labelledby="tab-codigo" tabindex="0" data-print-title="Código">
+
+      <h2 class="h4">Duas regras sem exceção</h2>
+
+      <h3 class="h5">1. Declare a linguagem</h3>
+      <p>
+        A auto-detecção do highlight.js decide por estatística sobre o texto do bloco. Em trechos
+        curtos ela erra — e erra <em>diferente</em> em cada bloco, então o mesmo snippet sai roxo numa
+        aba e verde na outra.
+      </p>
+
+<pre><code class="language-html">&lt;pre&gt;&lt;code class="language-typescript"&gt;const x: number = 1;&lt;/code&gt;&lt;/pre&gt;</code></pre>
+
+      <h3 class="h5">2. Escape <code>&amp;</code>, <code>&lt;</code> e <code>&gt;</code></h3>
+      <p>
+        Nessa ordem — <code>&amp;</code> primeiro, senão você transforma <code>&amp;lt;</code> em
+        <code>&amp;amp;lt;</code>. Um <code>&lt;</code> cru faz o navegador abrir uma tag ali: o resto
+        do bloco some e o layout se desfaz em silêncio.
+      </p>
+
+<pre><code class="language-bash">node ~/.claude/skills/html-explainer/scripts/escape-code.mjs src/auth.ts --lines 40-58</code></pre>
+
+      <div class="alert alert-warning d-flex gap-2" role="alert">
+        <i class="bi bi-terminal-fill flex-shrink-0"></i>
+        <div>
+          Se o console mostrar <em>"One of your code blocks includes unescaped HTML"</em>, você
+          esqueceu de escapar. Trate como erro, não como aviso.
+        </div>
+      </div>
+
+      <h3 class="h5 mt-4">Espaço em branco vaza</h3>
+      <p>Dentro de <code>&lt;pre&gt;</code> todo caractere conta. Compare:</p>
+
+      <div class="row g-3 mb-3">
+        <div class="col-md-6">
+          <div class="small text-danger mb-1"><i class="bi bi-x-lg"></i> Sai com linha em branco e indentação falsa</div>
+<pre class="mb-0"><code class="language-html">&lt;pre&gt;
+  &lt;code class="language-js"&gt;
+    const x = 1;
+  &lt;/code&gt;
+&lt;/pre&gt;</code></pre>
+        </div>
+        <div class="col-md-6">
+          <div class="small text-success mb-1"><i class="bi bi-check-lg"></i> Feio no fonte, certo na tela</div>
+<pre class="mb-0"><code class="language-html">&lt;pre&gt;&lt;code class="language-js"&gt;const x = 1;&lt;/code&gt;&lt;/pre&gt;</code></pre>
+        </div>
+      </div>
+
+      <h3 class="h5 mt-4">O botão de copiar</h3>
+      <p>
+        Passe o mouse em qualquer bloco desta página: ele está no canto. O que o torna confiável são
+        três detalhes.
+      </p>
+
+<pre><code class="language-js">// 1. o texto cru é capturado ANTES do highlight — depois, um plugin de número
+//    de linha faria a pessoa colar "1  const x = 1;"
+const sources = new WeakMap();
+document.querySelectorAll('pre &gt; code').forEach(c =&gt; sources.set(c, c.textContent.replace(/\n$/, '')));
+hljs.highlightAll();
+
+// 2. testar navigator.clipboard antes de usar: fora de contexto seguro ele é
+//    undefined, e a chamada estoura TypeError — exceção síncrona, que .catch() não pega
+if (navigator.clipboard &amp;&amp; window.isSecureContext) {
+  navigator.clipboard.writeText(text).then(ok, () =&gt; legacyCopy(text));  // 3. e rejeita
+} else {                                                                  //    se a aba não
+  legacyCopy(text);                                                       //    estiver focada
+}</code></pre>
+
+      <p>
+        O <code>legacyCopy</code> usa <code>document.execCommand('copy')</code>. É obsoleto, continua
+        implementado em todos os navegadores, e é o único caminho que funciona em
+        <code>http://192.168.0.10/doc.html</code> — onde a Clipboard API simplesmente não existe.
+      </p>
+
+      <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse"
+              data-bs-target="#legacy" aria-expanded="false" aria-controls="legacy">
+        <i class="bi bi-chevron-right"></i> Ver o fallback completo
+      </button>
+      <div class="collapse mt-2" id="legacy">
+<pre><code class="language-js">function legacyCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.setAttribute('readonly', '');
+  // position:fixed (não absolute) impede a página de rolar até o textarea invisível
+  ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;';
+  document.body.appendChild(ta);
+  ta.select();
+  ta.setSelectionRange(0, ta.value.length);  // iOS ignora select() sozinho
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+  document.body.removeChild(ta);
+  return ok;   // só funciona DENTRO do handler de um gesto do usuário
+}</code></pre>
+      </div>
+
+      <h3 class="h5 mt-4">Receitas</h3>
+
+      <p class="mb-1"><strong>Diff</strong> — o highlight.js colore <code>+</code> e <code>-</code> sozinho:</p>
+<pre><code class="language-diff">- history.pushState(null, '', '#' + id);
++ history.replaceState(null, '', '#' + id);</code></pre>
+
+      <p class="mb-1"><strong>Terminal</strong> — <code>nohighlight</code> impede que o highlight.js
+      reescreva o bloco e apague o <code>&lt;span&gt;</code> do prompt:</p>
+<pre><code class="nohighlight" data-allow-html><span class="text-success">$</span> node scripts/check-doc.mjs doc.html
+<span class="text-success">✓</span> doc.html — sem problemas</code></pre>
+
+      <p class="mb-1"><strong>Nome do arquivo em cima</strong> — contexto sem gastar uma frase:</p>
+      <div class="d-flex justify-content-between align-items-center bg-body-tertiary border border-bottom-0
+                  rounded-top px-3 py-1 small text-body-secondary font-monospace">
+        <span>src/server/auth.ts</span><span>TypeScript</span>
+      </div>
+<pre class="mt-0"><code class="language-typescript">export const verify = (t: string) =&gt; jwt.verify(t, SECRET);</code></pre>
+    </div>
+
+    <!-- ─────────────────────────────────────────────────── COMPONENTES ── -->
+    <div class="tab-pane fade" id="pane-componentes" role="tabpanel"
+         aria-labelledby="tab-componentes" tabindex="0" data-print-title="Componentes">
+
+      <h2 class="h4">Procure aqui antes de escrever CSS</h2>
+      <p>Todos funcionam com <code>data-bs-theme="dark"</code> sem um byte de ajuste.</p>
+
+      <div class="table-responsive mb-4">
+        <table class="table table-hover align-middle">
+          <thead><tr><th scope="col">Quero…</th><th scope="col">Use</th><th scope="col">Não use</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Destacar um aviso</th><td><code>alert</code></td><td>negrito e cor na mão</td></tr>
+            <tr><th scope="row">Detalhe que nem todo mundo lê</th><td><code>accordion</code></td><td>outra aba</td></tr>
+            <tr><th scope="row">Esconder um trecho curto</th><td><code>collapse</code></td><td><code>accordion</code> de um item</td></tr>
+            <tr><th scope="row">Comparar valores</th><td><code>table</code></td><td>duas colunas de texto</td></tr>
+            <tr><th scope="row">Etiquetar versão/estado</th><td><code>badge</code></td><td>parênteses no texto</td></tr>
+            <tr><th scope="row">Tecla do teclado</th><td><code>&lt;kbd&gt;</code></td><td><code>código</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="h5">Alerts: quatro, e só quatro</h3>
+      <div class="alert alert-primary d-flex gap-2" role="alert">
+        <i class="bi bi-info-circle-fill flex-shrink-0"></i>
+        <div><strong>Contexto</strong> — ajuda, mas não muda o que fazer.</div>
+      </div>
+      <div class="alert alert-warning d-flex gap-2" role="alert">
+        <i class="bi bi-exclamation-triangle-fill flex-shrink-0"></i>
+        <div><strong>Cuidado</strong> — vai dar errado se você fizer do jeito óbvio.</div>
+      </div>
+      <div class="alert alert-danger d-flex gap-2" role="alert">
+        <i class="bi bi-x-octagon-fill flex-shrink-0"></i>
+        <div><strong>Destrutivo</strong> — apaga dados, derruba produção, não tem volta.</div>
+      </div>
+      <div class="alert alert-success d-flex gap-2" role="alert">
+        <i class="bi bi-check-circle-fill flex-shrink-0"></i>
+        <div><strong>Recomendado</strong> — é este o caminho.</div>
+      </div>
+      <p class="text-body-secondary small">
+        Três alerts seguidos não destacam nada: se tudo é importante, nada é. (Estes quatro estão
+        aqui como catálogo — num documento de verdade, escolha um.)
+      </p>
+
+      <h3 class="h5 mt-4">Accordion — o que é opcional</h3>
+      <div class="accordion mb-3" id="acc-demo">
+        <div class="accordion-item">
+          <h4 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#acc-1" aria-expanded="false" aria-controls="acc-1">
+              Quando accordion e quando aba?
+            </button>
+          </h4>
+          <div id="acc-1" class="accordion-collapse collapse" data-bs-parent="#acc-demo">
+            <div class="accordion-body">
+              Aba é <em>ou isto ou aquilo</em> — eixos paralelos entre os quais o leitor escolhe.
+              Accordion é <em>tudo isto, mas nem tudo agora</em> — detalhe opcional, na ordem em que está.
+              Não empilhe abas dentro de accordion.
+            </div>
+          </div>
+        </div>
+        <div class="accordion-item">
+          <h4 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#acc-2" aria-expanded="false" aria-controls="acc-2">
+              Como deixar mais de um item aberto?
+            </button>
+          </h4>
+          <div id="acc-2" class="accordion-collapse collapse" data-bs-parent="#acc-demo">
+            <div class="accordion-body">
+              Tire o <code>data-bs-parent</code>. Em FAQ que a pessoa vai comparar, tirar é melhor.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h3 class="h5">Tokens em vez de hex</h3>
+      <p>Cor cravada é o que faz o documento parecer dois documentos:</p>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead><tr><th scope="col">Em vez de</th><th scope="col">Use</th></tr></thead>
+          <tbody>
+            <tr><td><code>style="color: #aaa"</code></td><td><code>class="text-body-secondary"</code></td></tr>
+            <tr><td><code>style="background: #1a1a1a"</code></td><td><code>class="bg-body-tertiary"</code></td></tr>
+            <tr><td><code>style="border: 1px solid #333"</code></td><td><code>class="border"</code></td></tr>
+            <tr><td><code>style="margin-bottom: 1rem"</code></td><td><code>class="mb-3"</code></td></tr>
+            <tr><td><code>style="display:flex; gap:.5rem"</code></td><td><code>class="d-flex gap-2"</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="h5 mt-4">Diagrama</h3>
+      <p>
+        Este está numa aba escondida — que é exatamente onde diagrama costuma quebrar. Ele só é
+        renderizado quando você abre a aba; o porquê está na aba <em>Armadilhas</em>.
+      </p>
+      <pre class="mermaid bg-body-tertiary rounded p-3 text-center">graph LR
+  A[Markdown] -->|mais de um eixo| B{rolagem infinita}
+  C[HTML em abas] -->|indice fixo| D[o leitor escolhe]
+  B --> E[procurando]
+  D --> F[achou]</pre>
+      <p class="text-body-secondary small mb-0">
+        Mermaid é opcional e entra por mais uma tag de CDN. Use quando a relação entre as coisas for o
+        ponto — não para enfeitar.
+      </p>
+    </div>
+
+    <!-- ─────────────────────────────────────────────────── ARMADILHAS ── -->
+    <div class="tab-pane fade" id="pane-armadilhas" role="tabpanel"
+         aria-labelledby="tab-armadilhas" tabindex="0" data-print-title="Armadilhas">
+
+      <h2 class="h4">Quatro que custam caro</h2>
+
+      <h3 class="h5">1. Aba escondida é <code>display: none</code></h3>
+      <p>
+        Dentro dela, <code>getBoundingClientRect()</code> e <code>getBBox()</code> devolvem zero.
+        Qualquer biblioteca que <strong>meça</strong> para desenhar produz lixo — e você só descobre
+        quando alguém clica na aba. Medido com Mermaid 11.16, dois diagramas idênticos:
+      </p>
+
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead><tr><th scope="col">Painel</th><th scope="col"><code>viewBox</code> do SVG</th><th scope="col"></th></tr></thead>
+          <tbody>
+            <tr><th scope="row">visível</th><td><code>0 0 340.45 70</code></td><td class="text-success">correto</td></tr>
+            <tr><th scope="row">escondido</th><td><code>-8 -8 16 16</code></td><td class="text-danger">caixa de 16×16</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        O diagrama <em>existe</em> — tem os nós, tem os textos — dentro de uma caixa minúscula. Abrir a
+        aba não conserta: o SVG já nasceu errado. A correção é renderizar quando a aba aparece:
+      </p>
+
+<pre><code class="language-js">mermaid.initialize({ startOnLoad: false, theme: 'dark' });
+mermaid.run({ nodes: document.querySelectorAll('.tab-pane.active .mermaid') });
+
+document.querySelectorAll('[data-bs-toggle="tab"]').forEach(t =&gt; {
+  t.addEventListener('shown.bs.tab', e =&gt; {
+    const pane = document.querySelector(e.target.getAttribute('data-bs-target'));
+    const todo = pane.querySelectorAll('.mermaid:not([data-processed])');
+    if (todo.length) mermaid.run({ nodes: todo });   // :not([data-processed]) = não repete
+  });
+});</code></pre>
+
+      <p>
+        Com isso, o mesmo painel escondido passa a <code>viewBox="0 0 332.75 70"</code> — medido. É o
+        código que está rodando nesta página. Para Chart.js o equivalente é <code>chart.resize()</code>
+        no <code>shown.bs.tab</code>.
+      </p>
+
+      <div class="alert alert-success d-flex gap-2" role="alert">
+        <i class="bi bi-check-circle-fill flex-shrink-0"></i>
+        <div>
+          <strong>O highlight.js não precisa disso.</strong> Ele reescreve texto, não mede layout:
+          um bloco em aba escondida sai destacado normalmente. Não copie "re-highlight no
+          <code>shown.bs.tab</code>" de tutorial — chamar <code>highlightElement</code> duas vezes
+          gera <code>&lt;span&gt;</code> dentro de <code>&lt;span&gt;</code>.
+        </div>
+      </div>
+
+      <h3 class="h5 mt-4">2. <code>integrity</code> sem <code>crossorigin</code> bloqueia</h3>
+      <p>
+        Não é aviso, é bloqueio. A verificação de SRI precisa de resposta CORS legível; sem
+        <code>crossorigin="anonymous"</code> a resposta é opaca, o navegador não consegue conferir e
+        descarta o arquivo. O sintoma é a página <strong>sem estilo nenhum</strong> e um erro de CORS
+        que não menciona <code>integrity</code>.
+      </p>
+
+      <h3 class="h5">3. Versão flutuante + SRI = bomba-relógio</h3>
+      <p>
+        <code>bootstrap@5</code> e <code>@latest</code> resolvem para o patch mais novo. No dia do
+        release o conteúdo muda, o hash não bate, e um documento que funcionava havia meses abre em
+        branco. Trave <code>5.3.8</code>. É este o motivo real da regra — não é purismo.
+      </p>
+
+      <h3 class="h5">4. A impressão sai com uma aba só</h3>
+      <p>
+        Óbvio depois: o que está em <code>display: none</code> não vai para o papel nem para o PDF.
+        Sem <code>@media print</code>, exportar um documento de 5 abas produz um PDF de 1 aba — e
+        ninguém percebe até o cliente reclamar.
+      </p>
+
+<pre><code class="language-css">@media print {
+  .nav-tabs, .copy-btn { display: none !important; }
+  .tab-content &gt; .tab-pane { display: block !important; opacity: 1 !important; page-break-inside: avoid; }
+  .tab-pane::before { content: attr(data-print-title); display: block; font-weight: 600; }
+}</code></pre>
+
+      <p class="text-body-secondary">
+        Teste agora: <kbd>Ctrl</kbd> + <kbd>P</kbd>. As cinco abas aparecem empilhadas, cada uma com
+        seu título.
+      </p>
+
+      <h3 class="h5 mt-4">Parece problema e não é</h3>
+      <ul class="mb-0">
+        <li>
+          <strong><code>file://</code> é contexto seguro no Chromium</strong> —
+          <code>window.isSecureContext === true</code> e <code>navigator.clipboard</code> existe
+          (verificado). O fallback do botão continua necessário por causa de <code>http://</code> em IP
+          de rede, não do <code>file://</code>.
+        </li>
+        <li>
+          <strong>Abas inativas com <code>tabindex="-1"</code></strong> é o padrão ARIA:
+          <kbd>Tab</kbd> deve pular da aba ativa direto para o conteúdo.
+        </li>
+        <li>
+          <strong>O documento depende da rede.</strong> É o preço de não ter build. Para uso offline
+          real, embuta os <code>.min.css</code>/<code>.min.js</code> dentro do arquivo — e aí remova os
+          <code>integrity</code>, que só fazem sentido em recurso externo.
+        </li>
+      </ul>
+    </div>
+
+  </div>
+
+  <footer class="text-body-secondary small border-top mt-5 pt-3">
+    Gerado com a skill <a href="https://github.com/frederico-kluser/html-explainer-skill">html-explainer</a>.
+    Bootstrap 5.3.8 · highlight.js 11.11.1 · Mermaid 11.16.0 — tudo por CDN, um arquivo só.
+    Verificado em 2026-07-29.
+  </footer>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
+        crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"
+        integrity="sha384-RH2xi4eIQ/gjtbs9fUXM68sLSi99C7ZWBRX1vDrVv6GQXRibxXLbwO2NGZB74MbU"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.16.0/dist/mermaid.min.js"
+        integrity="sha384-T/0lMUdJpd2S1ZHtRiofG3htU3xPCrFVeAQ1UUE2TJwlEJSV5NUwn30kP28n238E"
+        crossorigin="anonymous"></script>
+
+<script>
+/* runtime do documento — idêntico ao de assets/template.html, mais o trecho do Mermaid */
+(function () {
+  'use strict';
+
+  var sources = new WeakMap();
+  document.querySelectorAll('pre > code').forEach(function (code) {
+    sources.set(code, code.textContent.replace(/\n$/, ''));
+  });
+
+  if (window.hljs) hljs.highlightAll();
+
+  function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text).then(function () { return true; },
+                                                      function () { return legacyCopy(text); });
+    }
+    return Promise.resolve(legacyCopy(text));
+  }
+
+  function legacyCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;';
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length);
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+    return ok;
+  }
+
+  document.querySelectorAll('pre > code').forEach(function (code) {
+    var pre = code.parentElement;
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-sm btn-outline-secondary copy-btn';
+    btn.innerHTML = '<i class="bi bi-clipboard"></i>';
+    btn.setAttribute('aria-label', 'Copiar código');
+    btn.addEventListener('click', function () {
+      copyText(sources.get(code) || code.textContent).then(function (ok) {
+        btn.innerHTML = ok ? '<i class="bi bi-check-lg"></i>' : '<i class="bi bi-x-lg"></i>';
+        btn.classList.remove('btn-outline-secondary');
+        btn.classList.add(ok ? 'btn-outline-success' : 'btn-outline-danger');
+        setTimeout(function () {
+          btn.innerHTML = '<i class="bi bi-clipboard"></i>';
+          btn.className = 'btn btn-sm btn-outline-secondary copy-btn';
+        }, 1500);
+      });
+    });
+    pre.appendChild(btn);
+  });
+
+  var tabs = document.querySelectorAll('[data-bs-toggle="tab"]');
+
+  function activateFromHash() {
+    var hash = window.location.hash;
+    if (!hash || hash.length < 2) return;
+    var target = document.querySelector(hash);
+    if (!target) return;
+    var pane = target.closest('.tab-pane') || (target.classList.contains('tab-pane') ? target : null);
+    if (!pane) return;
+    var trigger = document.querySelector('[data-bs-target="#' + CSS.escape(pane.id) + '"]');
+    if (trigger) bootstrap.Tab.getOrCreateInstance(trigger).show();
+    if (target !== pane) requestAnimationFrame(function () { target.scrollIntoView(); });
+  }
+
+  tabs.forEach(function (t) {
+    t.addEventListener('shown.bs.tab', function (e) {
+      var id = (e.target.getAttribute('data-bs-target') || '').slice(1);
+      if (id) history.replaceState(null, '', '#' + id);
+    });
+  });
+
+  // ── Mermaid: renderizar só quando o painel estiver visível ──────────────
+  // Em display:none o getBBox() devolve zero e o SVG nasce numa caixa de 16×16.
+  //
+  // A ORDEM AQUI IMPORTA: este listener precisa existir ANTES de activateFromHash(),
+  // porque abrir o arquivo em #pane-x dispara shown.bs.tab imediatamente. Registrando
+  // depois, o evento já passou e o diagrama daquela aba nunca renderiza.
+  if (window.mermaid) {
+    mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'strict' });
+    var runMermaid = function (root) {
+      var todo = root ? root.querySelectorAll('.mermaid:not([data-processed])') : [];
+      if (todo.length) mermaid.run({ nodes: todo });
+    };
+    tabs.forEach(function (t) {
+      t.addEventListener('shown.bs.tab', function (e) {
+        runMermaid(document.querySelector(e.target.getAttribute('data-bs-target')));
+      });
+    });
+    // A aba inicial não dispara shown.bs.tab — renderize-a à mão.
+    runMermaid(document.querySelector('.tab-pane.show.active'));
+  }
+
+  window.addEventListener('hashchange', activateFromHash);
+  activateFromHash();   // por último: todos os listeners já estão de pé
+})();
+</script>
+</body>
+</html>
