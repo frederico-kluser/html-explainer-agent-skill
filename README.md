@@ -7,6 +7,8 @@ código destacado com botão de copiar, tudo por CDN.
 Sem `npm install`, sem bundler, sem pasta de assets. Um arquivo que abre com duplo clique, vai por
 anexo de e-mail e funciona offline no navegador de quem receber.
 
+**[▶ Veja o documento de exemplo ao vivo](https://frederico-kluser.github.io/html-explainer-skill/html-explainer/assets/example.html)** — ele é a saída da skill, e explica a skill.
+
 ![exemplo](docs/preview.png)
 
 ## O problema
