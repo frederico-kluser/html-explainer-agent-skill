@@ -157,7 +157,11 @@ mente.
 
 ### Plugins prontos
 
-`highlightjs-copy` faz isso pelo highlight.js, com i18n e aviso a leitor de tela:
+`highlightjs-copy` faz isso pelo highlight.js, com i18n e aviso a leitor de tela — **mas copia só
+pela Clipboard API**. Conferido no fonte da 1.0.6: uma referência a `navigator.clipboard`, e zero a
+`execCommand`, `isSecureContext` ou `catch`. Fora de contexto seguro ele estoura `TypeError`, e uma
+recusa em runtime vira rejeição não tratada: o botão não dá sinal nenhum e o usuário acha que copiou.
+Prefira o botão do template, ou aceite que este falha em silêncio.
 
 ```html
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlightjs-copy@1.0.6/dist/highlightjs-copy.min.css"

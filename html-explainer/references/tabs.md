@@ -40,8 +40,10 @@ Mais três detalhes que só aparecem depois:
 ## Teclado: já vem pronto
 
 Do Bootstrap 5.2 em diante o `tab.js` implementa a navegação de teclado do padrão ARIA no
-`role="tablist"`: **← →** (e **↑ ↓** em tablist vertical) andam entre as abas, **Home/End** vão para
-a primeira/última. Não escreva `keydown` próprio — você só vai brigar com o que já existe.
+`role="tablist"`: **← ↑** vão para a anterior, **→ ↓** para a próxima, **Home/End** para a
+primeira/última, e a lista **circula** (da última, → volta para a primeira). A ativação é
+automática: mover o foco já mostra o painel. Não escreva `keydown` próprio — você só vai brigar com
+o que já existe.
 
 Detalhe importante: as abas **não ativadas** ficam com `tabindex="-1"`, então **Tab** pula direto da
 aba ativa para o conteúdo. É o comportamento correto do padrão, não um bug.
@@ -83,7 +85,11 @@ de aba. Em documento de leitura isso costuma irritar — cada clique vira uma en
 </div>
 ```
 
-`aria-orientation="vertical"` troca as setas de ← → para ↑ ↓ — sem ele o teclado fica invertido.
+Ponha `aria-orientation="vertical"` — mas saiba o que ele faz e o que não faz. Ele informa a
+orientação à tecnologia assistiva; **não muda o teclado**. O `tab.js` do Bootstrap 5.3.8 não lê esse
+atributo em lugar nenhum do arquivo (conferido no fonte: zero ocorrências de `aria-orientation` no
+bundle inteiro): as quatro setas funcionam nas duas orientações, com **→ e ↓ = próxima**, **← e ↑ =
+anterior**. Não existe "teclado invertido" a consertar.
 
 **Sublinhado (mais discreto)** — troque `nav-tabs` por `nav-underline`. Mesmo markup, sem a caixa.
 
