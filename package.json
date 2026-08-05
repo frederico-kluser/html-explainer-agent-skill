@@ -5,6 +5,9 @@
   "license": "MIT",
   "private": false,
   "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
   "keywords": [
     "pi-package",
     "agent-skills",
