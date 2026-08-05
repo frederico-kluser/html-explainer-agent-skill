@@ -764,12 +764,26 @@ function executadoDiretamente() {
   return real(argv1) === real(aqui) || resolve(argv1) === aqui;
 }
 
+/*
+ * `process.exitCode = …`, nunca `process.exit(…)`.
+ *
+ * O modo "blocos" (sem --into) despeja ~27 KB no stdout. Quando o stdout é um CANO — CI,
+ * outro agente com spawn+pipe, `| pbcopy`, `| less` — a escrita do Node é ASSÍNCRONA: o que
+ * não coube no buffer do cano fica na fila interna. `process.exit()` derruba o processo na
+ * hora e joga fora essa fila; medido aqui, chegavam 8021 dos 27502 bytes, com o runtime
+ * cortado no meio de uma função e código de saída 0 — quebra silenciosa, a pior espécie.
+ * (Para arquivo a escrita é síncrona, e por isso o bug não aparecia no `> saida.html`.)
+ *
+ * Marcar `exitCode` deixa o Node terminar sozinho, depois de drenar tudo, com o MESMO código.
+ * O `process.exit()` do catch não escrevia stdout e não corria risco, mas vira `exitCode`
+ * também: um único critério no arquivo é o que impede que a próxima linha nova erre de novo.
+ */
 if (executadoDiretamente()) {
   try {
-    process.exit(main(process.argv.slice(2)));
+    process.exitCode = main(process.argv.slice(2));
   } catch (e) {
     if (!(e instanceof PbError)) throw e;
     console.error(e.message);
-    process.exit(1);
+    process.exitCode = 1;
   }
 }

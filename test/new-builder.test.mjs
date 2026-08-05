@@ -1115,18 +1115,16 @@ describe('invocado por um symlink (é assim que o install.sh instala a skill)', 
   });
 });
 
-// ═════════════════════════════════════════ lacuna conhecida (NÃO consertada aqui) ══
+// ═══════════════════════════════════════════════════ o stdout sai inteiro pelo cano ══
 //
-// Achada ao escrever esta suíte, e deixada de propósito sem conserto: este sub-agente só
-// escreve teste. Fica como `todo` para não derrubar a suíte e não sumir da vista.
+// Este teste nasceu `todo`, descrevendo um bug real: o script terminava em
+// `process.exit(main(…))` logo depois de despejar ~27 KB no stdout. Escrita em CANO é
+// assíncrona no Node, e `process.exit()` descarta o que ainda está na fila — pelo cano
+// chegavam ~8 KB dos 27 KB, com o runtime cortado no meio de uma função e código de saída
+// 0. Trocado por `process.exitCode`, o Node drena antes de sair. O teste guarda a volta.
 
-describe('lacunas conhecidas do gerador', () => {
-  test('o stdout do modo "blocos" é TRUNCADO quando o leitor não drena antes do exit — new-builder.mjs:769',
-    { todo: 'bug de produção: process.exit() logo depois de um process.stdout.write() grande' }, () => {
-      // `process.stdout.write()` num CANO é assíncrono; `process.exit()` na linha seguinte
-      // descarta o que ainda não saiu. Redirecionando para arquivo saem os ~24 KB inteiros;
-      // por cano chegam ~7,7 KB — o bloco do runtime cortado no meio de uma função. Quem
-      // captura a saída de dentro de um script (CI, outro agente) cola um runtime quebrado.
+describe('a saída não depende de quem lê', () => {
+  test('o modo "blocos" entrega os mesmos bytes por cano e por arquivo', () => {
       const t = sandbox();
       try {
         const spec = t.write('s.xml', SPEC_ALT);
@@ -1134,6 +1132,7 @@ describe('lacunas conhecidas do gerador', () => {
         const cano = runPipe(NEW_BUILDER, [spec]);         // stdout -> cano
         assert.equal(cano.out.length, arquivo.out.length,
           `pelo cano vieram ${cano.out.length} bytes dos ${arquivo.out.length} que o arquivo recebeu`);
+        assert.equal(cano.code, arquivo.code, 'e o código de saída é o mesmo nos dois');
       } finally { t.rm(); }
     });
 });

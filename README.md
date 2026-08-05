@@ -57,7 +57,7 @@ abas"*, *"documenta essa API"* — que a skill dispara sozinha.
 
 ## Uso direto, sem agente
 
-Os scripts funcionam como ferramenta de linha de comando (Node ≥ 20, zero dependências):
+Os scripts funcionam como ferramenta de linha de comando (Node ≥ 18, zero dependências):
 
 ```bash
 node html-explainer/scripts/new-doc.mjs "Como o cache invalida" ./cache.html \
@@ -72,8 +72,13 @@ node html-explainer/scripts/check-doc.mjs ./cache.html
 ✓ cache.html — sem problemas
 ```
 
-O `20` do `engines` vem da suíte, não dos scripts: nenhum deles usa API posterior ao Node 18, mas
-`npm test` depende do runner estável do `node --test`, que só chegou no 20.
+**Rodar os scripts** e **rodar a suíte** pedem coisas diferentes, e vale separar. Os quatro
+scripts (`new-doc`, `new-builder`, `check-doc`, `escape-code`) não usam nenhuma API posterior ao
+Node 18 — em Node 18 puro eles funcionam. O `">=18.20.8"` do `engines` é o piso da **suíte de
+testes**, medido: no 18.0.0 o `node --test` nem existe; no 18.9.0 o runner sai **verde rodando
+só 4 dos 332 testes** (o pior desfecho possível); no 18.13.0 as aspas angulares (`«`) das
+mensagens do linter estouram o lexer TAP. O 18.20.8 é o menor valor testado que se comporta, e um
+`pretest` aborta com mensagem explícita abaixo dele.
 
 ## Construtor de prompt — opcional, e só sob pedido
 

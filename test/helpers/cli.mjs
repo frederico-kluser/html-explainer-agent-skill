@@ -1,7 +1,7 @@
 /**
  * cli.mjs — roda `new-builder.mjs` e `new-doc.mjs` como PROCESSO, igual ao `lint.mjs` faz
- * com o `check-doc.mjs`, e pelo mesmo motivo: os dois terminam com `process.exit()`, e o
- * código de saída é parte do contrato (1 = spec/documento recusado, 2 = uso errado).
+ * com o `check-doc.mjs`, e pelo mesmo motivo: o código de saída é parte do contrato
+ * (1 = spec/documento recusado, 2 = uso errado) e só existe de verdade num processo.
  *
  * Importar as funções puras (`buildBlocks`, `injectInto`, …) também vale e é feito nos testes
  * de unidade — mas só o processo exercita o parse de argv, a guarda de entrada e, sobretudo,
@@ -21,11 +21,15 @@ export const ESCAPE_CODE = resolve(SCRIPTS, 'escape-code.mjs');
 /**
  * Roda um script da skill e devolve `{ code, out, err }`. `cwd` opcional; `input` vai no stdin.
  *
- * O stdout é redirecionado para um ARQUIVO, não para um cano — é o `> saida.html` do README, e
- * é o único jeito de capturar a saída INTEIRA: os scripts terminam com `process.exit()`, que em
- * Node descarta o que ainda não foi drenado de um cano. Ver a lacuna conhecida documentada em
- * `new-builder.test.mjs` («stdout truncado»): pelo cano, `spawnSync` recebe ~7 KB dos 24 KB.
- * Quem quiser MEDIR essa truncagem usa `runPipe()`.
+ * O stdout é redirecionado para um ARQUIVO, não para um cano: é exatamente o `> saida.html`
+ * do README, o caminho que a documentação manda usar, e a escrita em arquivo é síncrona — a
+ * saída chega inteira, sem depender do timing do leitor.
+ *
+ * Isso JÁ FOI um contorno para um bug: o `new-builder.mjs` terminava em `process.exit()` logo
+ * depois de escrever ~27 KB, e num cano o Node descarta o que ainda não drenou (chegavam ~8 KB).
+ * Hoje ele usa `process.exitCode` e o cano entrega tudo — `runPipe()` sobre ele é um teste que
+ * PASSA, não uma medição de estrago. O `new-doc.mjs` e o `escape-code.mjs` ainda terminam em
+ * `process.exit()`, então para eles a redireção continua sendo a captura confiável.
  */
 export function run(script, args = [], opts = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'html-explainer-run-'));
@@ -47,7 +51,11 @@ export function run(script, args = [], opts = {}) {
   }
 }
 
-/** O mesmo, mas com o stdout num CANO — o que expõe a truncagem do `process.exit()`. */
+/**
+ * O mesmo, mas com o stdout num CANO — o caminho de quem captura a saída de dentro de outro
+ * processo. É o que expunha a truncagem do `process.exit()`; hoje serve para provar que ela
+ * não acontece mais (e continua expondo o problema nos scripts que ainda usam `process.exit`).
+ */
 export function runPipe(script, args = [], opts = {}) {
   const r = spawnSync(process.execPath, [script, ...args], {
     encoding: 'utf8', cwd: opts.cwd, input: opts.input,

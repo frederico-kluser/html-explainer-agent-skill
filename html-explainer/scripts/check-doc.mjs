@@ -129,7 +129,14 @@ function attrsOf(attrs) {
   let m;
   while ((m = re.exec(attrs))) {
     const name = m[1].toLowerCase();
-    if (map.has(name)) continue; // o DOMParser fica com o primeiro
+    // Atributo repetido: vale o PRIMEIRO. Isso NÃO é imitação do navegador — repetir atributo
+    // viola a WFC "Unique Att Spec" do XML 1.0, e o DOMParser não fica com nenhum: ele RECUSA
+    // o documento inteiro («Attribute value redefined»). Aqui a escolha é outra de propósito:
+    // este é um LINTER, e recusar o arquivo inteiro por causa de um atributo duplicado deixaria
+    // de reportar todos os outros problemas — justamente o que a pessoa veio buscar. Ficar com
+    // o primeiro mantém a análise andando; o duplicado vira ruído local, não um apagão.
+    // (Mesma política, e mesma justificativa, do parseAttrs() em test/helpers/mini-xml.mjs.)
+    if (map.has(name)) continue;
     map.set(name, m[2] ?? m[3] ?? m[4] ?? null);
   }
   return map;

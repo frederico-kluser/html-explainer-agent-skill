@@ -17,7 +17,7 @@ description: >-
 license: MIT
 metadata:
   version: "1.1.0"
-  requires: "Nada. Zero dependência local — o HTML puxa tudo de CDN. Os scripts opcionais usam Node ≥ 18."
+  requires: "Nada. Zero dependência local — o HTML puxa tudo de CDN. Os scripts opcionais rodam em Node ≥ 18; só a suíte de testes do repositório exige Node ≥ 18.20.8."
   last-reviewed: "2026-08-05"
 ---
 
