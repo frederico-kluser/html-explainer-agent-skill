@@ -5,22 +5,29 @@
  *   node new-doc.mjs "Como o cache do build funciona" ./cache.html
  *   node new-doc.mjs "Migração para v3" ./mig.html --tabs "Resumo,Como era,Como fica,Migrar"
  *   node new-doc.mjs "API de pagamentos" ./api.html --lang en --sub "v2.4 · jul/2026"
+ *   node new-doc.mjs "Plano da migração" ./plano.html --builder
+ *   node new-doc.mjs "Revisão do parser" ./rev.html --builder --spec ./spec.xml
  *
  * O que sai é o template com título, subtítulo e abas já montados — inclusive os
  * pares id/aria-controls/aria-labelledby, que é onde o erro costuma nascer.
  * O conteúdo de cada aba continua sendo seu trabalho.
+ *
+ * --builder acrescenta uma aba com o construtor de prompt já FUNCIONANDO. Sem --spec ele
+ * usa a spec de planejamento padrão (a mesma de assets/prompt-builder.html): exigir um XML
+ * escrito do zero devolveria exatamente o atrito que a feature existe para remover.
  */
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { buildBlocks, injectInto, defaultSpecXml, PbError } from './new-builder.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE = resolve(HERE, '..', 'assets', 'template.html');
 
 const argv = process.argv.slice(2);
 const flag = (n, d = null) => { const i = argv.indexOf('--' + n); return i === -1 ? d : argv[i + 1]; };
-const TAKES_VALUE = ['--tabs', '--sub', '--lang'];
+const TAKES_VALUE = ['--tabs', '--sub', '--lang', '--spec', '--tab-label'];
 const positional = [];
 for (let i = 0; i < argv.length; i++) {
   if (TAKES_VALUE.includes(argv[i])) { i++; continue; } // pula a flag e o valor dela
@@ -31,6 +38,7 @@ for (let i = 0; i < argv.length; i++) {
 const [title, out] = positional;
 if (!title || !out) {
   console.error('uso: node new-doc.mjs "<título>" <saida.html> [--tabs "A,B,C"] [--sub "..."] [--lang pt-BR] [--force]');
+  console.error('     [--builder [--spec spec.xml] [--tab-label "Construtor"]]  acrescenta a aba do construtor de prompt');
   process.exit(2);
 }
 
@@ -99,6 +107,30 @@ if (!navRe.test(html) || !paneRe.test(html)) {
 html = html.replace(navRe, (_, a, b) => a + navHtml + b);
 html = html.replace(paneRe, (_, a, b) => a + '\n' + panesHtml + '\n' + b);
 
+// Aba do construtor de prompt. Tudo daqui para baixo só existe com --builder/--spec — sem
+// eles o documento sai exatamente como sempre saiu. A injeção acontece ANTES do writeFileSync
+// de propósito: se a spec for inválida ou o documento não tiver a forma esperada, o erro sai
+// e nenhum arquivo é escrito.
+let builderInfo = null;
+const specFile = flag('spec');
+if (argv.includes('--builder') || specFile) {
+  try {
+    if (specFile && !existsSync(specFile)) { console.error(`não achei a spec ${specFile}`); process.exit(2); }
+    const xml = specFile ? readFileSync(specFile, 'utf8') : defaultSpecXml();
+    const blocks = buildBlocks(xml, { tabLabel: flag('tab-label') });
+    for (const w of blocks.warnings) console.error(`aviso:\n${w}`);
+    html = injectInto(html, blocks);
+    builderInfo = blocks;
+  } catch (e) {
+    if (!(e instanceof PbError)) throw e;
+    console.error(e.message);
+    process.exit(1);
+  }
+}
+
 writeFileSync(out, html);
 console.log(`${out} criado — ${tabs.length} abas: ${ids.map((i) => '#pane-' + i).join(' ')}`);
+if (builderInfo)
+  console.log(`  + aba "${builderInfo.label}" (#${builderInfo.paneId}) com o construtor #${builderInfo.shellId}`
+            + ` — spec ${specFile ? specFile : 'padrão (planejamento)'}`);
 console.log(`próximo: preencher os «...», depois  node ${resolve(HERE, 'check-doc.mjs')} ${out}`);
