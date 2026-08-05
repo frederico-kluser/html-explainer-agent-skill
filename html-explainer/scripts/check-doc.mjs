@@ -7,7 +7,8 @@
  *
  * Sai com 1 se houver ERRO, 0 se só houver AVISO. Pega justamente o que passa
  * despercebido ao olhar a página: par ARIA quebrado, duas abas ativas, `<` não
- * escapado dentro de <code>, versão flutuante de CDN, arquivo externo ao lado.
+ * escapado dentro de <code>, versão flutuante de CDN, arquivo externo ao lado,
+ * construtor de prompt cuja spec e cuja casca não se encontram.
  */
 
 import { readFileSync } from 'node:fs';
@@ -58,6 +59,8 @@ function check(file) {
   codeBlocks(masked, err, warn);
   externals(html, err, warn);
   leftovers(structMask, warn);
+  // html cru para a spec (mask() apaga o miolo do <script>), structMask para a casca.
+  promptBuilder(html, masked, structMask, err, warn);
 
   report(file, problems);
 }
@@ -91,6 +94,45 @@ function lineOf(html, idx) {
 function attr(tag, name) {
   const m = tag.match(new RegExp(`\\b${name}\\s*=\\s*("([^"]*)"|'([^']*)')`, 'i'));
   return m ? (m[2] ?? m[3]) : null;
+}
+
+// ── leitura de tag: um parser só, usado por todo o construtor ────────────────
+
+/**
+ * Miolo de uma tag de abertura. XML 1.0 só proíbe `<` e `&` crus em valor de atributo —
+ * `>` é legal, e o DOMParser do runtime aceita. Com `[^>]*` a tag seria cortada no meio
+ * de um label como «custo > 0» e a pergunta apareceria "sem label". As três alternativas
+ * começam em caracteres disjuntos (`"`, `'`, resto), então não há ambiguidade: cada
+ * caractere só pode ser consumido de um jeito e não existe backtracking a explorar.
+ */
+const ATTRS_SRC = '((?:"[^"]*"|\'[^\']*\'|[^>"\'])*)';
+
+/** Tag de abertura de `name` (ou de qualquer nome, com `[a-z][\w-]*`), lendo `>` em valor. */
+function tagRe(name, flags = 'gi') {
+  return new RegExp(`<${name}\\b${ATTRS_SRC}>`, flags);
+}
+
+const ANY_TAG = () => tagRe('[a-z][\\w-]*');
+
+/**
+ * Mapa nome→valor dos atributos capturados por `ATTRS_SRC`. Nome em minúsculas (o
+ * DOMParser trata `CLASS` e `class` igual); aspas simples e duplas valem o mesmo; valor
+ * sem aspas também; atributo pelado entra com valor `null`.
+ *
+ * Existir este mapa é o que impede que a *palavra* de um atributo dentro de um VALOR conte
+ * como atributo: `label="… (não é o default)"` é lido como um par label→texto, e o `default`
+ * de dentro do texto nunca chega ao mapa.
+ */
+function attrsOf(attrs) {
+  const map = new Map();
+  const re = /([A-Za-z_:][\w:.-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
+  let m;
+  while ((m = re.exec(attrs))) {
+    const name = m[1].toLowerCase();
+    if (map.has(name)) continue; // o DOMParser fica com o primeiro
+    map.set(name, m[2] ?? m[3] ?? m[4] ?? null);
+  }
+  return map;
 }
 
 // ── documento ────────────────────────────────────────────────────────────────
@@ -305,6 +347,298 @@ function externals(html, err, warn) {
 function leftovers(masked, warn) {
   for (const m of masked.matchAll(/«[^»]*»/g)) warn(`placeholder do template não preenchido: ${m[0]}`, m.index);
   for (const m of masked.matchAll(/\b(TODO|FIXME|XXX|Lorem ipsum)\b/g)) warn(`sobrou "${m[1]}" no documento`, m.index);
+}
+
+// ── construtor de prompt ─────────────────────────────────────────────────────
+
+/**
+ * Fim do elemento aberto em `start` (índice do "<"), contando o aninhamento do MESMO
+ * nome. Corre sobre o texto já mascarado: um <div> que só existe dentro de um <pre>
+ * de exemplo já virou espaço e não desequilibra a conta.
+ */
+function endOfElement(s, start, name) {
+  const re = new RegExp(`<(/?)${name}\\b${ATTRS_SRC}>`, 'gi');
+  re.lastIndex = start;
+  let depth = 0;
+  let m;
+  while ((m = re.exec(s))) {
+    if (m[1]) {
+      if (--depth === 0) return m.index + m[0].length;
+    } else if (!/\/>$/.test(m[0])) {
+      depth++;
+    }
+  }
+  return s.length; // sem fechamento: o resto do arquivo é o corpo
+}
+
+/** [início, fim) do corpo do elemento aberto em `open`, em coordenadas de `struct`. */
+function bodyRange(struct, open, name) {
+  const start = open.index + open[0].length;
+  if (/\/>$/.test(open[0])) return [start, start]; // <question ... /> não tem corpo
+  const close = struct.toLowerCase().indexOf(`</${name}`, start);
+  return [start, close === -1 ? struct.length : close];
+}
+
+/**
+ * Todas as tags de abertura dentro de `s` que declaram o atributo `name` (inclusive pelado,
+ * como data-pb-form e data-live). Procurar o nome solto no texto acharia a PROSA: uma aba
+ * que explica o contrato diz "o runtime injeta em data-pb-form" e isso não é markup — o
+ * documento passaria sem ter o gancho, ou levaria erro por ter escrito sobre ele.
+ */
+function tagsWithAttr(s, name) {
+  const out = [];
+  for (const t of s.matchAll(ANY_TAG())) if (attrsOf(t[1]).has(name)) out.push(t);
+  return out;
+}
+
+/** Existe ao menos uma tag com esse atributo? */
+function hasAttrTag(s, name) {
+  return tagsWithAttr(s, name).length > 0;
+}
+
+/**
+ * Faixas [index, end) de cada <pre>…</pre>, com a marca de `data-live`. Varrido à mão:
+ * o regex equivalente (`<pre…>[\s\S]*?</pre>`) tenta o corpo a partir de CADA `<pre` e
+ * fica quadrático num documento com muitos `<pre` sem fechar. A ordem é a mesma do regex
+ * — depois de um par, a busca recomeça depois do fechamento.
+ */
+function preRanges(s) {
+  const low = s.toLowerCase();
+  const re = tagRe('pre');
+  const out = [];
+  let m;
+  while ((m = re.exec(s))) {
+    const close = low.indexOf('</pre>', re.lastIndex);
+    if (close === -1) break; // sem fechamento não há corpo, e nenhum <pre> adiante fecha
+    out.push({ index: m.index, end: close + 6, live: attrsOf(m[1]).has('data-live') });
+    re.lastIndex = close + 6;
+  }
+  return out;
+}
+
+const QUESTION_TYPES = ['radio', 'checkbox', 'text', 'textarea'];
+
+function promptBuilder(html, masked, structMask, err, warn) {
+  // A spec vive dentro de <script type="application/xml"> e mask() apaga o miolo de TODO
+  // <script> — por isso ela é lida do HTML CRU. Não há risco de confundir com um documento
+  // que *ensina* este markup: dentro de <pre> o "<" está escapado (&lt;script), e o que
+  // não estiver já é reprovado por codeBlocks().
+  const specs = [];
+  for (const m of html.matchAll(new RegExp(`<script\\b${ATTRS_SRC}>([\\s\\S]*?)</script>`, 'gi'))) {
+    if (!/<prompt-builder\b/i.test(m[2])) continue;
+    // Só bloco INERTE é spec. Script sem type (ou com type de JS) o navegador EXECUTA:
+    // ali um "<prompt-builder>" é comentário do runtime, não a spec do documento — e sem
+    // este filtro o próprio runtime seria lido como uma spec quebrada.
+    const sa = attrsOf(m[1]);
+    const tipo = (sa.get('type') || '').toLowerCase();
+    if (!tipo || tipo === "module" || /^(?:text\/|application\/)?(?:javascript|ecmascript)/.test(tipo)) continue;
+    specs.push({
+      id: sa.get('id') ?? null,
+      index: m.index,
+      body: m[2],
+      at: m.index + 8 + m[1].length, // offset do miolo no arquivo: "<script" + attrs + ">"
+      used: false,
+    });
+  }
+
+  // A casca, ao contrário, é markup de verdade da página: vem do structMask, que já
+  // esvaziou <pre>/<code>. Um documento que exibe esta casca num bloco de código não
+  // ganha um construtor por causa disso.
+  const shells = [];
+  for (const m of structMask.matchAll(tagRe('([a-z][\\w-]*)'))) {
+    if (!m[2].includes('prompt-builder')) continue; // peneira barata antes de parsear
+    const a = attrsOf(m[2]);
+    // Classe casada como TOKEN da lista, que é o que o `.prompt-builder` do querySelectorAll
+    // faz. Como substring, `class="prompt-builder-legend"` — um auxiliar decorativo — viraria
+    // uma casca inteira e colheria os erros de um construtor que ele nem é.
+    const cls = a.get('class');
+    if (!cls || !cls.split(/\s+/).includes('prompt-builder')) continue;
+    shells.push({
+      tag: m[0],
+      index: m.index,
+      end: endOfElement(structMask, m.index, m[1]),
+      id: a.get('id') ?? null,
+      spec: a.get('data-pb-spec') ?? null,
+    });
+  }
+
+  if (!specs.length && !shells.length) return; // documento sem construtor é válido
+
+  // ── casca ↔ spec ───────────────────────────────────────────────────────────
+  const byId = new Map();
+  for (const s of specs) if (s.id) byId.set(s.id, s);
+
+  for (const sh of shells) {
+    const who = sh.id ? ` #${sh.id}` : '';
+    if (!sh.spec) {
+      err(`casca do construtor${who} sem data-pb-spec — o runtime não acha a spec e a aba abre vazia`,
+          sh.index, 'data-pb-spec="<id do <script> que traz a spec>"');
+    } else if (!byId.has(sh.spec)) {
+      err(`data-pb-spec="${sh.spec}" não aponta para nenhuma spec — o construtor abre sem perguntas`,
+          sh.index);
+    } else {
+      byId.get(sh.spec).used = true;
+    }
+
+    // O miolo da casca é lido do `masked` e não do `structMask`: a saída mora dentro de
+    // um <pre>, que o structMask esvazia — inclusive o <code data-pb-output> lá dentro.
+    const inner = masked.slice(sh.index, sh.end);
+
+    if (!hasAttrTag(inner, 'data-pb-form'))
+      err(`casca do construtor${who} sem [data-pb-form] — o runtime não tem onde injetar as perguntas e a aba abre vazia`,
+          sh.index);
+    if (!hasAttrTag(inner, 'data-pb-copy'))
+      err(`casca do construtor${who} sem [data-pb-copy] — o prompt fica na tela sem jeito de levar para o chat`,
+          sh.index);
+
+    const outs = tagsWithAttr(inner, 'data-pb-output');
+    if (!outs.length) {
+      err(`casca do construtor${who} sem [data-pb-output] — o prompt montado não tem onde aparecer`,
+          sh.index);
+    } else {
+      const pres = preRanges(inner);
+      for (const o of outs) {
+        const live = pres.some((p) => o.index > p.index && o.index < p.end && p.live);
+        if (!live)
+          err('[data-pb-output] fora de um <pre data-live> — o botãozinho de copiar do hover guarda o prompt inicial e nunca mais atualiza',
+              sh.index + o.index,
+              'a casca é <pre data-live><code class="language-xml" data-pb-output>');
+      }
+    }
+
+    if (!hasAttrTag(inner, 'data-pb-reset'))
+      warn(`casca do construtor${who} sem [data-pb-reset] — quem mexeu demais não tem como voltar ao padrão`,
+           sh.index);
+
+    const status = tagsWithAttr(inner, 'data-pb-status')[0];
+    if (!status)
+      warn(`casca do construtor${who} sem [data-pb-status][aria-live] — leitor de tela não fica sabendo que o prompt mudou`,
+           sh.index);
+    else if (!attrsOf(status[1]).has('aria-live'))
+      warn('[data-pb-status] sem aria-live="polite" — o status muda calado para quem usa leitor de tela',
+           sh.index + status.index);
+
+    if (!/<noscript\b/i.test(inner))
+      warn(`casca do construtor${who} sem <noscript> — com JS desligado a aba fica em branco, sem dizer por quê`,
+           sh.index, 'o <noscript> vai dentro do [data-pb-form]');
+  }
+
+  for (const s of specs) {
+    if (s.used) continue;
+    if (!s.id)
+      err('spec do construtor sem id no <script> — nenhuma casca consegue apontar para ela',
+          s.index, '<script type="application/xml" id="pb-spec-XXX">');
+    else
+      err(`a spec #${s.id} não é referenciada por nenhuma casca — o XML fica no arquivo e ninguém monta nada`,
+          s.index, `falta um .prompt-builder com data-pb-spec="${s.id}"`);
+  }
+
+  // ── miolo da spec ──────────────────────────────────────────────────────────
+  for (const s of specs) {
+    // Fragmento de <option> e esqueleto do <template> são XML arbitrário dentro de CDATA:
+    // se não saírem da frente, um fragmento que cite <option> vira opção fantasma. O
+    // branco preserva o tamanho, então o nº de linha continua certo.
+    const struct = s.body.replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, (m) => ' '.repeat(m.length));
+
+    // <template>: a posição vem do texto estrutural, o conteúdo vem do CRU — os {{...}}
+    // moram justamente dentro do CDATA que acabou de ser apagado.
+    const tpls = [...struct.matchAll(tagRe('template'))];
+    if (!tpls.length)
+      err('spec do construtor sem <template> — não há esqueleto onde encaixar as respostas',
+          s.index, 'o esqueleto vai em <template><![CDATA[ ... ]]></template>');
+    else if (tpls.length > 1)
+      err(`${tpls.length} elementos <template> na mesma spec — o runtime monta com um só e o resto vira XML morto`,
+          s.at + tpls[1].index);
+
+    // ── perguntas ──
+    const questions = [];
+    const seen = new Map();
+    for (const q of struct.matchAll(tagRe('question'))) {
+      const qa = attrsOf(q[1]);
+      const at = s.at + q.index;
+      const id = qa.get('id') ?? null;
+      const type = (qa.get('type') || '').toLowerCase();
+      questions.push({ id, at });
+
+      if (!id)
+        err('<question> sem id — sem ele não há como chamá-la de {{...}} no template', at);
+      else if (!/^[a-z][a-z0-9-]*$/.test(id))
+        err(`id de pergunta inválido "${id}" — use [a-z][a-z0-9-]*, que é o que {{...}} e os ids gerados aceitam`, at);
+      else if (seen.has(id))
+        err(`id de pergunta duplicado "${id}" (também na linha ${lineOf(html, seen.get(id))}) — {{${id}}} fica ambíguo e uma das perguntas some do prompt`, at);
+      else seen.set(id, at);
+
+      const nome = id ? `"${id}"` : 'sem id';
+      if (!QUESTION_TYPES.includes(type))
+        err(`pergunta ${nome} com type="${qa.get('type') ?? ''}" — só existem radio, checkbox, text e textarea`, at);
+
+      if (type !== 'radio' && type !== 'checkbox') continue;
+
+      const [a, b] = bodyRange(struct, q, 'question');
+      const opts = [...struct.slice(a, b).matchAll(tagRe('option'))];
+      if (!opts.length) {
+        err(`${type} ${nome} sem <option> — a pergunta aparece na tela sem nada para escolher`, at);
+        continue;
+      }
+
+      let defaults = 0;
+      for (const o of opts) {
+        const oa = attrsOf(o[1]);
+        const onde = s.at + a + o.index;
+        // O runtime marca a opção com `o.getAttribute('default') === 'true'`: comparação com a
+        // STRING "true", sem conversão. `default` pelado, `default="1"`, `default="yes"` — tudo
+        // isso o runtime lê como não-marcado, e o formulário abre na opção errada calado.
+        if (oa.has('default')) {
+          const v = oa.get('default');
+          if (v === 'true') defaults++;
+          else if (v !== 'false')
+            err(`<option> da pergunta ${nome} com ${v === null ? '`default` pelado' : `default="${v}"`}`
+              + ' — o runtime só marca a opção quando o atributo é exatamente a string "true";'
+              + ' qualquer outro valor ele ignora e a opção abre desmarcada', onde,
+                'escreva default="true", ou tire o atributo');
+        }
+        if (oa.get('value') == null)
+          err(`<option> da pergunta ${nome} sem value — a opção não tem como ser identificada nem salva`, onde);
+        if (oa.get('label') == null)
+          err(`<option> da pergunta ${nome} sem label — a opção aparece sem rótulo clicável`, onde);
+      }
+
+      // O runtime resolve o padrão do radio com `options.filter(checked)[0] || options[0]`:
+      // sem nenhum default ele NÃO abre vazio — abre na primeira opção do XML. O prompt sai
+      // inteiro; o que falta é a escolha do autor, que a ordem do arquivo tomou por ele.
+      if (type === 'radio' && defaults === 0)
+        err(`radio ${nome} sem nenhuma opção default="true" — o runtime cai na primeira opção da lista, `
+          + 'então o padrão do documento é a ordem em que o XML ficou, não uma escolha sua', at,
+            'marque a opção que deve vir escolhida com default="true"');
+      // …e com vários, ele fica com o PRIMEIRO checked e ignora os outros, em silêncio.
+      if (type === 'radio' && defaults > 1)
+        err(`radio ${nome} com ${defaults} opções default="true" — o runtime fica com a primeira e ignora as demais, `
+          + 'e quem lê a spec não tem como saber qual delas é o padrão de verdade', at);
+    }
+
+    if (questions.length > 12)
+      warn(`${questions.length} perguntas num construtor só — acima de 12 ninguém chega ao fim do formulário`,
+           questions[12].at, 'quebre em dois construtores, ou corte o que quase nunca muda');
+
+    // ── {{marcadores}} ↔ perguntas ──
+    const ids = new Set(questions.map((q) => q.id).filter(Boolean));
+    const usados = new Set();
+    for (const t of tpls) {
+      const [a, b] = bodyRange(struct, t, 'template');
+      for (const m of s.body.slice(a, b).matchAll(/\{\{([^{}]*)\}\}/g)) {
+        const nome = m[1].trim();
+        usados.add(nome);
+        if (!ids.has(nome))
+          err(`{{${m[1]}}} no <template> não casa com nenhuma pergunta — o marcador sai literal no prompt`,
+              s.at + a + m.index);
+      }
+    }
+    for (const q of questions) {
+      if (q.id && ids.has(q.id) && !usados.has(q.id))
+        warn(`a pergunta "${q.id}" não aparece no <template> — quem responde escolhe e a escolha não vai para o prompt`,
+             q.at);
+    }
+  }
 }
 
 // ── saída ────────────────────────────────────────────────────────────────────
