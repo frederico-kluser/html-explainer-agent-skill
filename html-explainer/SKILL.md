@@ -5,20 +5,20 @@ description: >-
   separado em ABAS (tabs), tema escuro, Bootstrap 5 por CDN, destaque de sintaxe
   automático e botão de copiar em cada bloco de código — em vez de responder com
   Markdown, README ou .md solto. Use ao pedir "explica isso", "monta um documento",
-  "faz um relatório/guia/tutorial/comparativo/apresentação", "documenta essa API",
-  "me manda um HTML", "prefiro em abas", "sem markdown" — e sempre que a resposta
-  tiver mais de um eixo (visão geral × código × armadilhas, antes × depois, por
-  linguagem, por ambiente) e couber melhor em abas do que em rolagem infinita.
-  Cobre o template pronto, o markup ARIA correto de nav-tabs, deep-link da aba pela
-  URL, highlight.js/Prism por CDN, copiar-para-área-de-transferência com fallback
-  para file://, SRI, e um linter que valida o HTML gerado. NÃO use para páginas de
+  "faz um relatório/guia/tutorial/comparativo", "documenta essa API", "me manda um
+  HTML", "prefiro em abas", "sem markdown" — e sempre que a resposta tiver mais de um
+  eixo (visão geral × código × armadilhas, antes × depois, por linguagem) e couber
+  melhor em abas do que em rolagem infinita. Opcional e só sob pedido: uma aba
+  CONSTRUTOR DE PROMPT (prompt builder) que remonta um prompt XML ao vivo a partir de
+  perguntas de radio/checkbox — acione ao pedir "construtor de prompts", "gerador de
+  prompt", "prompt configurável", "montar o prompt clicando". NÃO use para páginas de
   produto, app React, site com build/npm, ou quando o destino é um repositório que
   espera Markdown (README, docs/, wiki).
 license: MIT
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   requires: "Nada. Zero dependência local — o HTML puxa tudo de CDN. Os scripts opcionais usam Node ≥ 18."
-  last-reviewed: "2026-07-29"
+  last-reviewed: "2026-08-05"
 ---
 
 # Um arquivo, abas, tema escuro
@@ -71,6 +71,26 @@ node ~/.claude/skills/html-explainer/scripts/check-doc.mjs ./saida.html
 ```
 
 **5. Abra o arquivo e olhe.** `xdg-open saida.html`. Se você não abriu, não terminou.
+
+**Condicional — se pediram um construtor de prompt.** Não é um sexto passo: um documento normal
+não tem construtor. Atalho de uma linha, com a spec de planejamento padrão:
+
+```bash
+node ~/.claude/skills/html-explainer/scripts/new-doc.mjs "Plano da migração" ./plano.html --builder
+```
+
+Ou o fluxo mais comum — documento primeiro, construtor depois, com as perguntas que o caso pede:
+
+```bash
+node ~/.claude/skills/html-explainer/scripts/new-builder.mjs --example > spec.xml   # edite as perguntas
+node ~/.claude/skills/html-explainer/scripts/new-builder.mjs spec.xml --into ./plano.html
+node ~/.claude/skills/html-explainer/scripts/check-doc.mjs ./plano.html
+```
+
+Variantes: `--builder --spec spec.xml` (spec própria já no `new-doc.mjs`), `--tab-label "Prompt de
+revisão"`, `--into … --force` (regera a aba daquele construtor, idempotente) e o `new-builder.mjs`
+sem `--into`, que só imprime os blocos no stdout. O contrato — esquema XML, atributos, ganchos,
+armadilhas — está em `references/prompt-builder.md`; leia antes de escrever uma spec à mão.
 
 ## Como fatiar em abas
 
@@ -125,7 +145,8 @@ Regras de bolso:
    ↔ `div#pane-x[aria-labelledby="tab-x"]`. Um `id` repetido faz a aba errada abrir.
 10. **Não reimplemente comportamento que o Bootstrap já dá.** Navegação por seta/Home/End no
     tablist, `show/hide` de aba, colapso do accordion, foco do modal — tudo já vem no
-    `bootstrap.bundle.min.js`.
+    `bootstrap.bundle.min.js`. *Ressalva:* o runtime do construtor de prompt é JS próprio porque o
+    Bootstrap não tem nada equivalente — não é reimplementação, é a única exceção.
 
 ## O que o runtime do template já resolve
 
@@ -143,6 +164,14 @@ Não reescreva isto; é o `<script>` no fim do arquivo.
   Hash apontando para um `<h2>` dentro de um painel abre o painel e rola até o título.
 - **Impressão/PDF com todas as abas abertas** — `@media print` desdobra os painéis e imprime o
   rótulo de cada um. Sem isso, o PDF sai com uma aba só.
+- **Dois ganchos para o construtor de prompt** — a única mudança que esse `<script>` já sofreu, e
+  ela está lá mesmo quando não há construtor no documento:
+  - `data-live` faz o laço que guarda a fonte crua **pular** blocos cujo texto muda em runtime. O
+    cache é tirado uma vez só, no `load`; sem a exclusão, o botão de copiar entregaria para sempre
+    o prompt do momento em que a página abriu.
+  - `window.__explainerCopy` expõe o caminho de cópia — `navigator.clipboard` com o fallback
+    `execCommand` — para o botão grande do construtor reusar, em vez de manter uma segunda
+    implementação da mesma coisa em outro lugar do arquivo.
 
 ## Fora do básico
 
@@ -154,6 +183,7 @@ Leia o arquivo de referência **quando o caso aparecer** — não precisa carreg
 | Abas aninhadas, `nav-pills` vertical, abas com badge, sincronizar N grupos de aba (trocar "Python" em todos os blocos de uma vez) | `references/tabs.md` |
 | Prism em vez de highlight.js, números de linha, destacar linha específica, diff, terminal falso, código longo com rolagem | `references/code-blocks.md` |
 | Qual componente Bootstrap usar para cada coisa (alert, accordion, card, table, offcanvas, badge, TOC/scrollspy) | `references/components.md` |
+| Aba que monta um prompt XML ao vivo: perguntas em `radio`/`checkbox`/`text`, esqueleto em `<template>`, botão de copiar | `references/prompt-builder.md` |
 | Deu errado / vai dar errado | `references/pitfalls.md` |
 | Como escrever o texto: ordem, densidade, títulos, o que cortar | `references/writing.md` |
 
@@ -166,3 +196,7 @@ Leia o arquivo de referência **quando o caso aparecer** — não precisa carreg
 - [ ] Nenhuma linha de CSS que um utilitário do Bootstrap resolveria.
 - [ ] Nenhum `TODO`, `«placeholder»` ou aba de exemplo do template sobrando.
 - [ ] O arquivo abre por `file://` — testei com duplo clique, não por servidor local.
+- [ ] **Se há construtor:** cliquei em cada `radio` e cada `checkbox`, vi o prompt mudar a cada
+  clique, e copiei o resultado. O prompt que já estava no bloco antes do primeiro clique — o que
+  sai no PDF e o que vê quem está sem JavaScript — é byte a byte o que o construtor entrega,
+  porque é o próprio runtime que o calcula na hora de gerar o arquivo.
