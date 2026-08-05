@@ -9,7 +9,7 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { run, sandbox, ESCAPE_CODE } from './helpers/cli.mjs';
+import { run, runPipe, sandbox, ESCAPE_CODE } from './helpers/cli.mjs';
 import { lintHtml } from './helpers/lint.mjs';
 import { doc } from './fixtures/doc.mjs';
 
@@ -98,5 +98,27 @@ describe('escape-code — o bloco pronto para colar', () => {
     const r = lintHtml(doc('<pre><code class="language-html"><section id="x">a & b</section></code></pre>',
       { hooks: false }));
     assert.ok(r.tem('erro', 'HTML não escapado dentro de <code>'), r.out);
+  });
+
+  // O tamanho da saída deste script é o do arquivo que o usuário passou — ele é o que mais
+  // estoura o buffer do cano. Com o `process.exit(0)` que havia depois do `write`, o `--raw`
+  // de um arquivo de 600 KB entregava 8192 dos 837780 bytes pelo cano (5 de 5 rodadas) e
+  // ainda saía com código 0. `process.exitCode` deixa o Node drenar antes de sair.
+  test('a saída não depende de quem lê: cano e arquivo recebem os mesmos bytes', () => {
+    const t = sandbox();
+    try {
+      // Grande o bastante para não caber no buffer do cano (que trunca já nos 8 KB).
+      const grande = Array.from({ length: 8000 },
+        (_, i) => `  const x${i} = a < b && c > d & e; // linha ${i}`).join('\n');
+      const f = t.write('grande.js', grande);
+      for (const args of [[f, '--raw'], [f]]) {
+        const arquivo = run(ESCAPE_CODE, args);      // stdout -> arquivo (escrita síncrona)
+        const cano = runPipe(ESCAPE_CODE, args);     // stdout -> cano (escrita assíncrona)
+        assert.ok(arquivo.out.length > 100000, 'a entrada precisa ser maior que o buffer do cano');
+        assert.equal(cano.out.length, arquivo.out.length,
+          `${args.join(' ')}: pelo cano vieram ${cano.out.length} bytes dos ${arquivo.out.length} do arquivo`);
+        assert.equal(cano.code, arquivo.code, 'e o código de saída é o mesmo nos dois');
+      }
+    } finally { t.rm(); }
   });
 });

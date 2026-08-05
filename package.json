@@ -6,7 +6,7 @@
   "private": false,
   "type": "module",
   "scripts": {
-    "pretest": "node -e \"const [a,b,c]=process.versions.node.split('.').map(Number); if (a<18||(a===18&&(b<20||(b===20&&c<8)))) { console.error('html-explainer-skill: a suite de testes exige Node >= 18.20.8. Em 18.0 o --test nem existe; em 18.9 o runner roda 4 testes dos ~290 e sai VERDE (o pior dos casos); em 18.13 o lexer TAP estoura nas aspas angulares das mensagens do linter. Node atual: '+process.versions.node); process.exit(1); }\"",
+    "pretest": "node -e \"const [a,b,c]=process.versions.node.split('.').map(Number); if (a<18||(a===18&&(b<20||(b===20&&c<8)))) { console.error('html-explainer-skill: a suite de testes exige Node >= 18.20.8. Em 18.0 o --test nem existe; em 18.9 o runner roda so uma fracao dos testes e ainda assim sai VERDE (o pior dos casos: a suite parece passar sem ter rodado); em 18.13 o lexer TAP estoura nas aspas angulares das mensagens do linter. Node atual: '+process.versions.node); process.exit(1); }\"",
     "test": "node --test"
   },
   "keywords": [

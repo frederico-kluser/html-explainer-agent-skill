@@ -18,9 +18,22 @@ const args = process.argv.slice(2);
 const quiet = args.includes('--quiet');
 const files = args.filter((a) => !a.startsWith('-'));
 
-if (!files.length) {
+/*
+ * `process.exitCode = …`, nunca `process.exit(…)` — o mesmo critério do `new-builder.mjs`,
+ * do `new-doc.mjs` e do `escape-code.mjs`. Quando o stdout é um CANO (`| less`, CI, outro
+ * processo com spawn+pipe) a escrita do Node é ASSÍNCRONA; `process.exit()` derruba o processo
+ * e descarta o que ainda está na fila. Um relatório de vários arquivos passa fácil dos 64 KB
+ * do buffer do cano, e o corte sairia com o código de saída CERTO — pior ainda de perceber.
+ *
+ * A guarda de uso é a única saída antecipada do arquivo, e não dá para trocá-la por `return`
+ * porque isto é o topo do módulo. Ela vira uma bandeira: marca o código 2 aqui, e o veredito
+ * do fim do arquivo (a única outra linha executável no topo) fica dentro do `else`. O contrato
+ * continua o mesmo: 2 sem argumento, 1 com erro, 0 com só aviso.
+ */
+const semArquivos = !files.length;
+if (semArquivos) {
   console.error('uso: node check-doc.mjs <arquivo.html> [...] [--quiet]');
-  process.exit(2);
+  process.exitCode = 2;
 }
 
 const C = process.stdout.isTTY
@@ -850,5 +863,7 @@ function report(file, problems) {
   console.log(`  ${errors.length} erro(s), ${warns.length} aviso(s)`);
 }
 
-for (const file of files) check(file);
-process.exit(totalErrors > 0 ? 1 : 0);
+if (!semArquivos) {
+  for (const file of files) check(file);
+  process.exitCode = totalErrors > 0 ? 1 : 0;
+}

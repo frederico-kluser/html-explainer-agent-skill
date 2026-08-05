@@ -27,9 +27,9 @@ export const ESCAPE_CODE = resolve(SCRIPTS, 'escape-code.mjs');
  *
  * Isso JÁ FOI um contorno para um bug: o `new-builder.mjs` terminava em `process.exit()` logo
  * depois de escrever ~27 KB, e num cano o Node descarta o que ainda não drenou (chegavam ~8 KB).
- * Hoje ele usa `process.exitCode` e o cano entrega tudo — `runPipe()` sobre ele é um teste que
- * PASSA, não uma medição de estrago. O `new-doc.mjs` e o `escape-code.mjs` ainda terminam em
- * `process.exit()`, então para eles a redireção continua sendo a captura confiável.
+ * Hoje os QUATRO scripts usam `process.exitCode` e o cano entrega tudo — `runPipe()` sobre eles
+ * é um teste que PASSA, não uma medição de estrago. A redireção para arquivo continua sendo a
+ * captura padrão porque é o caminho que o README manda usar.
  */
 export function run(script, args = [], opts = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'html-explainer-run-'));
@@ -54,7 +54,8 @@ export function run(script, args = [], opts = {}) {
 /**
  * O mesmo, mas com o stdout num CANO — o caminho de quem captura a saída de dentro de outro
  * processo. É o que expunha a truncagem do `process.exit()`; hoje serve para provar que ela
- * não acontece mais (e continua expondo o problema nos scripts que ainda usam `process.exit`).
+ * não acontece mais — e voltaria a expor o problema no minuto em que alguém reintroduzisse
+ * um `process.exit()` depois de uma escrita no stdout.
  */
 export function runPipe(script, args = [], opts = {}) {
   const r = spawnSync(process.execPath, [script, ...args], {

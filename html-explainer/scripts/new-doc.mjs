@@ -35,102 +35,119 @@ for (let i = 0; i < argv.length; i++) {
   positional.push(argv[i]);
 }
 
-const [title, out] = positional;
-if (!title || !out) {
-  console.error('uso: node new-doc.mjs "<título>" <saida.html> [--tabs "A,B,C"] [--sub "..."] [--lang pt-BR] [--force]');
-  console.error('     [--builder [--spec spec.xml] [--tab-label "Construtor"]]  acrescenta a aba do construtor de prompt');
-  process.exit(2);
-}
-
-if (existsSync(out) && !argv.includes('--force')) {
-  console.error(`${out} já existe — use --force para sobrescrever`);
-  process.exit(2);
-}
-
-const tabs = (flag('tabs') || 'Visão geral,Como fazer,Armadilhas').split(',').map((s) => s.trim()).filter(Boolean);
-if (tabs.length < 2) { console.error('precisa de pelo menos 2 abas'); process.exit(2); }
-
-const sub = flag('sub') || '';
-const lang = flag('lang') || 'pt-BR';
-
-/** "Como era ANTES" → "como-era-antes". Sem acento, porque vira id e vai no #hash da URL. */
-const slug = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-                     .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'aba';
-
-const ids = [];
-for (const t of tabs) {
-  let base = slug(t), id = base, n = 2;
-  while (ids.includes(id)) id = `${base}-${n++}`; // duas abas "Exemplo" não podem colidir
-  ids.push(id);
-}
-
-const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-
-const navHtml = tabs.map((label, i) => {
-  const id = ids[i], first = i === 0;
-  return `    <li class="nav-item" role="presentation">
-      <button class="nav-link${first ? ' active' : ''}" id="tab-${id}" data-bs-toggle="tab" data-bs-target="#pane-${id}"
-              type="button" role="tab" aria-controls="pane-${id}" aria-selected="${first}">
-        ${esc(label)}
-      </button>
-    </li>`;
-}).join('\n');
-
-const panesHtml = tabs.map((label, i) => {
-  const id = ids[i], first = i === 0;
-  return `    <div class="tab-pane fade${first ? ' show active' : ''}" id="pane-${id}" role="tabpanel"
-         aria-labelledby="tab-${id}" tabindex="0" data-print-title="${esc(label)}">
-      <h2 class="h4">${esc(label)}</h2>
-      <p>«conteúdo»</p>
-    </div>`;
-}).join('\n\n');
-
-let html = readFileSync(TEMPLATE, 'utf8');
-
-html = html
-  .replace(/<html lang="pt-BR"/, `<html lang="${lang}"`)
-  .replace(/«Título do documento»/g, esc(title))
-  .replace(/«Título curto»/g, esc(title.length > 40 ? title.slice(0, 38) + '…' : title))
-  .replace(/«subtítulo \/ versão \/ data»/g, esc(sub))
-  .replace(/«O ponto que este documento explica»/g, esc(title));
-
-// Troca o bloco inteiro de abas + painéis pelos gerados. O delimitador é a marca
-// estrutural do template; se ela mudar lá, este replace falha alto em vez de silencioso.
-const navRe = /(<ul class="nav nav-tabs" id="doc-tabs" role="tablist">\n)[\s\S]*?(\n  <\/ul>)/;
-const paneRe = /(<div class="tab-content border border-top-0 rounded-bottom p-4" id="doc-tabs-content">\n)[\s\S]*?(\n  <\/div>\n\n  <footer)/;
-
-if (!navRe.test(html) || !paneRe.test(html)) {
-  console.error('o template mudou de forma e este script não sabe mais onde encaixar as abas.');
-  process.exit(1);
-}
-
-html = html.replace(navRe, (_, a, b) => a + navHtml + b);
-html = html.replace(paneRe, (_, a, b) => a + '\n' + panesHtml + '\n' + b);
-
-// Aba do construtor de prompt. Tudo daqui para baixo só existe com --builder/--spec — sem
-// eles o documento sai exatamente como sempre saiu. A injeção acontece ANTES do writeFileSync
-// de propósito: se a spec for inválida ou o documento não tiver a forma esperada, o erro sai
-// e nenhum arquivo é escrito.
-let builderInfo = null;
-const specFile = flag('spec');
-if (argv.includes('--builder') || specFile) {
-  try {
-    if (specFile && !existsSync(specFile)) { console.error(`não achei a spec ${specFile}`); process.exit(2); }
-    const xml = specFile ? readFileSync(specFile, 'utf8') : defaultSpecXml();
-    const blocks = buildBlocks(xml, { tabLabel: flag('tab-label') });
-    for (const w of blocks.warnings) console.error(`aviso:\n${w}`);
-    html = injectInto(html, blocks);
-    builderInfo = blocks;
-  } catch (e) {
-    if (!(e instanceof PbError)) throw e;
-    console.error(e.message);
-    process.exit(1);
+/*
+ * O corpo vive numa função para que cada saída antecipada seja um `return` com o código,
+ * nunca um `process.exit()`. É o mesmo critério do `new-builder.mjs` e do `escape-code.mjs`:
+ * quando o stdout é um CANO a escrita do Node é ASSÍNCRONA, e `process.exit()` derruba o
+ * processo descartando o que ainda não drenou — saída cortada, código de saída 0, quebra
+ * silenciosa. Aqui a saída é curta e cabia no buffer do cano, então o bug nunca mordeu; um
+ * único padrão nos quatro scripts é o que impede que a próxima linha nova erre de novo.
+ *
+ * Os códigos são contrato e não mudam: 2 = uso errado (falta argumento, arquivo já existente
+ * sem --force, menos de 2 abas, spec inexistente), 1 = template com forma mudada ou spec
+ * recusada, 0 = documento escrito.
+ */
+function main() {
+  const [title, out] = positional;
+  if (!title || !out) {
+    console.error('uso: node new-doc.mjs "<título>" <saida.html> [--tabs "A,B,C"] [--sub "..."] [--lang pt-BR] [--force]');
+    console.error('     [--builder [--spec spec.xml] [--tab-label "Construtor"]]  acrescenta a aba do construtor de prompt');
+    return 2;
   }
+
+  if (existsSync(out) && !argv.includes('--force')) {
+    console.error(`${out} já existe — use --force para sobrescrever`);
+    return 2;
+  }
+
+  const tabs = (flag('tabs') || 'Visão geral,Como fazer,Armadilhas').split(',').map((s) => s.trim()).filter(Boolean);
+  if (tabs.length < 2) { console.error('precisa de pelo menos 2 abas'); return 2; }
+
+  const sub = flag('sub') || '';
+  const lang = flag('lang') || 'pt-BR';
+
+  /** "Como era ANTES" → "como-era-antes". Sem acento, porque vira id e vai no #hash da URL. */
+  const slug = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                       .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'aba';
+
+  const ids = [];
+  for (const t of tabs) {
+    let base = slug(t), id = base, n = 2;
+    while (ids.includes(id)) id = `${base}-${n++}`; // duas abas "Exemplo" não podem colidir
+    ids.push(id);
+  }
+
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+  const navHtml = tabs.map((label, i) => {
+    const id = ids[i], first = i === 0;
+    return `    <li class="nav-item" role="presentation">
+        <button class="nav-link${first ? ' active' : ''}" id="tab-${id}" data-bs-toggle="tab" data-bs-target="#pane-${id}"
+                type="button" role="tab" aria-controls="pane-${id}" aria-selected="${first}">
+          ${esc(label)}
+        </button>
+      </li>`;
+  }).join('\n');
+
+  const panesHtml = tabs.map((label, i) => {
+    const id = ids[i], first = i === 0;
+    return `    <div class="tab-pane fade${first ? ' show active' : ''}" id="pane-${id}" role="tabpanel"
+           aria-labelledby="tab-${id}" tabindex="0" data-print-title="${esc(label)}">
+        <h2 class="h4">${esc(label)}</h2>
+        <p>«conteúdo»</p>
+      </div>`;
+  }).join('\n\n');
+
+  let html = readFileSync(TEMPLATE, 'utf8');
+
+  html = html
+    .replace(/<html lang="pt-BR"/, `<html lang="${lang}"`)
+    .replace(/«Título do documento»/g, esc(title))
+    .replace(/«Título curto»/g, esc(title.length > 40 ? title.slice(0, 38) + '…' : title))
+    .replace(/«subtítulo \/ versão \/ data»/g, esc(sub))
+    .replace(/«O ponto que este documento explica»/g, esc(title));
+
+  // Troca o bloco inteiro de abas + painéis pelos gerados. O delimitador é a marca
+  // estrutural do template; se ela mudar lá, este replace falha alto em vez de silencioso.
+  const navRe = /(<ul class="nav nav-tabs" id="doc-tabs" role="tablist">\n)[\s\S]*?(\n  <\/ul>)/;
+  const paneRe = /(<div class="tab-content border border-top-0 rounded-bottom p-4" id="doc-tabs-content">\n)[\s\S]*?(\n  <\/div>\n\n  <footer)/;
+
+  if (!navRe.test(html) || !paneRe.test(html)) {
+    console.error('o template mudou de forma e este script não sabe mais onde encaixar as abas.');
+    return 1;
+  }
+
+  html = html.replace(navRe, (_, a, b) => a + navHtml + b);
+  html = html.replace(paneRe, (_, a, b) => a + '\n' + panesHtml + '\n' + b);
+
+  // Aba do construtor de prompt. Tudo daqui para baixo só existe com --builder/--spec — sem
+  // eles o documento sai exatamente como sempre saiu. A injeção acontece ANTES do writeFileSync
+  // de propósito: se a spec for inválida ou o documento não tiver a forma esperada, o erro sai
+  // e nenhum arquivo é escrito.
+  let builderInfo = null;
+  const specFile = flag('spec');
+  if (argv.includes('--builder') || specFile) {
+    try {
+      if (specFile && !existsSync(specFile)) { console.error(`não achei a spec ${specFile}`); return 2; }
+      const xml = specFile ? readFileSync(specFile, 'utf8') : defaultSpecXml();
+      const blocks = buildBlocks(xml, { tabLabel: flag('tab-label') });
+      for (const w of blocks.warnings) console.error(`aviso:\n${w}`);
+      html = injectInto(html, blocks);
+      builderInfo = blocks;
+    } catch (e) {
+      if (!(e instanceof PbError)) throw e;
+      console.error(e.message);
+      return 1;
+    }
+  }
+
+  writeFileSync(out, html);
+  console.log(`${out} criado — ${tabs.length} abas: ${ids.map((i) => '#pane-' + i).join(' ')}`);
+  if (builderInfo)
+    console.log(`  + aba "${builderInfo.label}" (#${builderInfo.paneId}) com o construtor #${builderInfo.shellId}`
+              + ` — spec ${specFile ? specFile : 'padrão (planejamento)'}`);
+  console.log(`próximo: preencher os «...», depois  node ${resolve(HERE, 'check-doc.mjs')} ${out}`);
+  return 0; // explícito: `process.exitCode = undefined` seria o mesmo, mas o 0 é o contrato.
 }
 
-writeFileSync(out, html);
-console.log(`${out} criado — ${tabs.length} abas: ${ids.map((i) => '#pane-' + i).join(' ')}`);
-if (builderInfo)
-  console.log(`  + aba "${builderInfo.label}" (#${builderInfo.paneId}) com o construtor #${builderInfo.shellId}`
-            + ` — spec ${specFile ? specFile : 'padrão (planejamento)'}`);
-console.log(`próximo: preencher os «...», depois  node ${resolve(HERE, 'check-doc.mjs')} ${out}`);
+process.exitCode = main();
