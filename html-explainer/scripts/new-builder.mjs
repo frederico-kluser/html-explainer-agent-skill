@@ -16,7 +16,7 @@
  * nunca uma segunda implementação da montagem, que divergiria no primeiro caso de borda.
  */
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, basename } from 'node:path';
 
@@ -739,8 +739,32 @@ ${blocks.cssBlock}
   return 0;
 }
 
-// Só roda como CLI quando é o arquivo invocado: new-doc.mjs importa as funções daqui.
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+/**
+ * "Fui executado direto, ou fui importado?" — a guarda existe porque new-doc.mjs importa
+ * buildBlocks/injectInto daqui, e importar não pode disparar o CLI.
+ *
+ * ARMADILHA (não "simplifique" para resolve(argv[1]) === fileURLToPath(import.meta.url)):
+ * o install.sh instala a skill como SYMLINK do diretório html-explainer/ inteiro
+ * (~/.claude/skills/html-explainer -> repo/html-explainer). O loader ESM do Node resolve
+ * symlinks antes de formar import.meta.url; resolve() só normaliza `.`/`..` e NÃO resolve
+ * symlink. Pelo caminho do link os dois lados nunca batiam: main() não rodava e o script
+ * saía 0, mudo — `--example > spec.xml` gerava um arquivo VAZIO sem nenhum aviso.
+ * Por isso os dois lados passam por realpathSync.
+ *
+ * realpathSync pode falhar (arquivo apagado sob os pés, permissão negada num diretório do
+ * caminho): nesse caso caímos no resolve() de antes, que é a comparação sem symlink — pior,
+ * mas nunca pior do que era. E se argv[1] for um diretório (entrypoint via package main),
+ * nenhuma das duas casa: aí o comportamento é o de módulo importado, que é o seguro.
+ */
+function executadoDiretamente() {
+  const argv1 = process.argv[1];
+  if (!argv1) return false;
+  const aqui = fileURLToPath(import.meta.url);
+  const real = (p) => { try { return realpathSync(p); } catch { return resolve(p); } };
+  return real(argv1) === real(aqui) || resolve(argv1) === aqui;
+}
+
+if (executadoDiretamente()) {
   try {
     process.exit(main(process.argv.slice(2)));
   } catch (e) {
