@@ -1,12 +1,13 @@
 {
   "name": "html-explainer-skill",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Skill do pi coding agent: explicar/documentar com UM arquivo .html em abas, tema escuro, Bootstrap 5 CDN, destaque de sintaxe e botão copiar.",
   "license": "MIT",
   "private": false,
   "type": "module",
   "scripts": {
-    "test": "node --test test/*.test.mjs"
+    "pretest": "node -e \"const [a,b,c]=process.versions.node.split('.').map(Number); if (a<18||(a===18&&(b<20||(b===20&&c<8)))) { console.error('html-explainer-skill: a suite de testes exige Node >= 18.20.8. Em 18.0 o --test nem existe; em 18.9 o runner roda 4 testes dos ~290 e sai VERDE (o pior dos casos); em 18.13 o lexer TAP estoura nas aspas angulares das mensagens do linter. Node atual: '+process.versions.node); process.exit(1); }\"",
+    "test": "node --test"
   },
   "keywords": [
     "pi-package",
@@ -23,7 +24,7 @@
     "url": "git+https://github.com/frederico-kluser/html-explainer-skill.git"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=18.20.8"
   },
   "files": [
     "html-explainer/",

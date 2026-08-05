@@ -27,6 +27,16 @@ export function lintFiles(...files) {
     tem(nivel, trecho) {
       return (nivel === 'erro' ? this.erros : this.avisos).some((l) => l.includes(trecho));
     },
+    /**
+     * O NÚMERO DE LINHA que o linter atribuiu ao primeiro problema que contém o trecho —
+     * `null` se não houver nenhum. Sem isto, um `lineOf()` que devolvesse sempre 1 passaria
+     * pela suíte inteira, e o relatório apontaria o topo do arquivo para todo problema.
+     */
+    linha(nivel, trecho) {
+      const l = (nivel === 'erro' ? this.erros : this.avisos).find((x) => x.includes(trecho));
+      const m = l && l.match(/^\w+\s+\S+?:(\d+)\s/);
+      return m ? Number(m[1]) : null;
+    },
   };
 }
 

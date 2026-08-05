@@ -10,7 +10,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { lintHtml } from './helpers/lint.mjs';
-import { doc, docComConstrutor, spec, shell, promptBuilderXml, SAIDA_PADRAO, HOOKS } from './fixtures/doc.mjs';
+import { doc, docComConstrutor, spec, shell, promptBuilderXml, SAIDA_PADRAO, HOOKS, hooksSem } from './fixtures/doc.mjs';
 
 /** Spec com o miolo do <prompt-builder> montado a partir das perguntas dadas. */
 const specDe = (perguntas, template, attrs) => spec({ body: promptBuilderXml(perguntas, template, attrs) });
@@ -293,14 +293,32 @@ describe('válidos — o linter não pode inventar problema', () => {
   </question>`, TPL)));
   });
 
-  test('CDATA contendo </question> e <option> — não vira opção fantasma', () => {
+  // Fixture MATADOR do CDATA: cada tag citada aqui dentro é INVÁLIDA como markup de spec —
+  // <option> sem value nem label, <question> sem id, um segundo <template>. Se o CDATA
+  // deixar de ser apagado, cada uma vira um erro nomeado; com ele apagado, nenhuma existe.
+  // (A versão antiga deste fixture citava uma <option value=… label=…> VÁLIDA: mesmo vazando
+  // ela não gerava erro nenhum, e o teste aprovava o linter sem o apagamento do CDATA.)
+  test('CDATA contendo </question>, <option>, <question> e <template> — nada disso vira spec', () => {
     assertLimpo(lintHtml(comSpec(`<question id="modo" type="radio" label="Modo">
     <option value="a" label="Alfa" default="true"><![CDATA[<exemplo>
 </question>
-<option value="fantasma" label="nao existe"/>
+<option/>
+<question/>
+<template/>
 </exemplo>]]></option>
     <option value="b" label="Beta"><![CDATA[<b/>]]></option>
   </question>`, TPL)));
+  });
+
+  test('CDATA do <template> citando <option> e <question> inválidas — idem', () => {
+    assertLimpo(lintHtml(comSpec(RADIO_OK, `<template><![CDATA[
+<root>
+  {{modo}}
+  <!-- o esqueleto ensina o próprio formato: -->
+  <question type="slider"/>
+  <option default="talvez"/>
+</root>
+]]></template>`)));
   });
 
   test('<template> e {{nao-existe}} literais em bloco de código e em prosa', () => {
@@ -390,26 +408,29 @@ ${shell()}
 describe('§6 rigor — o que a Onda 2 promoveu a erro', () => {
   test('spec fora de type="application/xml" é ERRO', () => {
     const r = lintHtml(docComConstrutor({ specOpts: { tipo: 'text/xml' } }));
-    assertErro(r, 'application/xml');
+    assertErro(r, 'está num <script type="text/xml"> — o tipo do contrato é "application/xml"');
   });
 
   test('<prompt-builder> sem id é ERRO', () => {
     const r = lintHtml(comSpec(RADIO_OK, TPL, 'lang="xml"'));
-    assertErro(r, 'sem id');
+    assertErro(r, '<prompt-builder> sem id — o runtime cai no prefixo genérico "pb"');
+    assert.equal(r.erros.length, 1, `o fixture não é mínimo — devia disparar só esta checagem.\n${r.out}`);
   });
 
   test('<option> dentro de text/textarea é ERRO', () => {
     const r = lintHtml(comSpec(`<question id="modo" type="text" label="Alvo">
     <option value="a" label="Alfa"/>
   </question>`, TPL));
-    assertErro(r, 'option');
+    assertErro(r, '<option> dentro da pergunta "modo", que é text');
+    assert.equal(r.erros.length, 1, `o fixture não é mínimo.\n${r.out}`);
   });
 
   test('join fora dos quatro valores é ERRO', () => {
     const r = lintHtml(comSpec(`<question id="modo" type="checkbox" join="pipe" label="Modo">
     <option value="a" label="Alfa" default="true"><![CDATA[<a/>]]></option>
   </question>`, TPL));
-    assertErro(r, 'join');
+    assertErro(r, 'pergunta "modo" com join="pipe" — o runtime só conhece newline, blank-line, comma e space');
+    assert.equal(r.erros.length, 1, `o fixture não é mínimo.\n${r.out}`);
   });
 
   // O contrato define este caso como AVISO, não erro: `join` só serve para unir os
@@ -429,21 +450,41 @@ describe('§6 rigor — o que a Onda 2 promoveu a erro', () => {
       `o else-if do linter não devia emitir também o aviso de "fora de checkbox".\n${r.out}`);
   });
 
-  test('documento com construtor e sem os ganchos do §4 é ERRO', () => {
+  // Um fixture por metade do §4: com os DOIS ganchos fora, o teste passava mesmo que só uma
+  // das duas checagens existisse — e é a outra que ninguém lembra de escrever.
+  test('sem o gancho do [data-live] é ERRO (e só esse)', () => {
+    const r = lintHtml(doc(`${spec()}\n${shell()}\n${hooksSem('data-live')}`, { hooks: false }));
+    assertErro(r, 'não pula os blocos [data-live] ao guardar a fonte crua');
+    assert.equal(r.erros.length, 1, `o fixture não é mínimo.\n${r.out}`);
+  });
+
+  test('sem o window.__explainerCopy é ERRO (e só esse)', () => {
+    const r = lintHtml(doc(`${spec()}\n${shell()}\n${hooksSem('copy')}`, { hooks: false }));
+    assertErro(r, 'não expõe window.__explainerCopy');
+    assert.equal(r.erros.length, 1, `o fixture não é mínimo.\n${r.out}`);
+  });
+
+  test('sem NENHUM dos dois ganchos, os dois erros saem juntos', () => {
     const r = lintHtml(doc(`${spec()}\n${shell()}`, { hooks: false }));
-    assertErro(r, 'data-live');
+    assertErro(r, 'não pula os blocos [data-live]');
+    assertErro(r, 'não expõe window.__explainerCopy');
+    assert.equal(r.erros.length, 2, r.out);
   });
 
   test('duas cascas para a mesma spec é ERRO', () => {
     const duas = `${shell({ id: 'pb-x' })}\n${shell({ id: 'pb-x2' })}`;
     const r = lintHtml(doc(`${spec()}\n${duas}\n${HOOKS}`, { hooks: false }));
-    assertErro(r, 'casca');
+    assertErro(r, 'duas cascas com data-pb-spec="pb-spec-x"');
+    assert.equal(r.erros.length, 1, `o fixture não é mínimo.\n${r.out}`);
   });
 
+  // A segunda raiz é VAZIA de propósito: repetir a spec inteira acrescentava um id de pergunta
+  // duplicado e um segundo <template>, e o teste passava por causa de qualquer um dos três.
   test('dois <prompt-builder> no mesmo <script> é ERRO', () => {
-    const corpo = `${promptBuilderXml(RADIO_OK, TPL, 'id="x"')}\n${promptBuilderXml(RADIO_OK, TPL, 'id="y"')}`;
+    const corpo = `${promptBuilderXml(RADIO_OK, TPL, 'id="x"')}\n<prompt-builder id="y"/>`;
     const r = lintHtml(doc(`${spec({ body: corpo })}\n${shell()}\n${HOOKS}`, { hooks: false }));
-    assertErro(r, 'prompt-builder');
+    assertErro(r, '2 elementos <prompt-builder> no mesmo <script>');
+    assert.equal(r.erros.length, 1, `o fixture não é mínimo.\n${r.out}`);
   });
 });
 
@@ -543,5 +584,56 @@ ${promptBuilderXml(RADIO_OK, TPL)}`;
     assert.ok(r.tem('erro', 'sem <template>'),
       `hoje o sintoma vem junto — se ele sumiu, o linter melhorou e este teste é que está velho.\n${r.out}`);
     assert.equal(r.code, 1, r.out);
+  });
+});
+
+// ────────────────────────────────────────────────── o NÚMERO DA LINHA do problema ──
+//
+// Nenhum teste desta suíte conferia a linha: `lineOf()` podia devolver 1 para tudo e passar
+// inteira. Só que a linha É o relatório — quem lê "erro doc.html:1" em vinte problemas
+// procura os vinte à mão. Os fixtures são montados por `doc()`, que tem cabeçalho fixo: o
+// corpo começa sempre na linha 11, e daí para baixo os números são determinísticos.
+//
+// As referências cruzadas («também na linha N», «a outra na linha N») ganham asserção própria:
+// elas nascem de uma SEGUNDA chamada a lineOf, com um índice guardado antes, e é aí que a
+// conta erra de verdade.
+
+describe('§6 — a linha apontada, e a linha citada na referência cruzada', () => {
+  test('<question> sem id: a linha da pergunta, não a do <script>', () => {
+    const r = lintHtml(comSpec('<question type="text" label="Alvo"/>', TPL_VAZIO));
+    assert.equal(r.linha('erro', '<question> sem id'), 13, r.out);
+  });
+
+  test('id de pergunta duplicado: a linha da SEGUNDA, citando a da primeira', () => {
+    const r = lintHtml(comSpec(
+      '<question id="modo" type="text" label="Um"/>\n  <question id="modo" type="text" label="Dois"/>', TPL));
+    assert.equal(r.linha('erro', 'id de pergunta duplicado'), 14, r.out);
+    assert.ok(r.tem('erro', 'id de pergunta duplicado "modo" (também na linha 13)'), r.out);
+  });
+
+  test('{{marcador}} órfão: a linha do MARCADOR dentro do <template>, não a do <template>', () => {
+    const r = lintHtml(comSpec(`<question id="modo" type="radio" label="Modo">
+    <option value="a" label="Alfa" default="true"/>
+    <option value="b" label="Beta"/>
+  </question>`, '<template><![CDATA[\n<root>\n  {{modo}}\n  {{nao-existe}}\n</root>\n]]></template>'));
+    assert.equal(r.linha('erro', '{{nao-existe}}'), 20, r.out);
+  });
+
+  test('duas cascas para a mesma spec: a linha da segunda, citando a da primeira', () => {
+    const duas = `${shell({ id: 'pb-x' })}\n${shell({ id: 'pb-x2' })}`;
+    const r = lintHtml(doc(`${spec()}\n${duas}\n${HOOKS}`, { hooks: false }));
+    assert.equal(r.linha('erro', 'duas cascas com data-pb-spec'), 34, r.out);
+    assert.ok(r.tem('erro', 'duas cascas com data-pb-spec="pb-spec-x" (a outra na linha 24)'), r.out);
+  });
+
+  test('problema na casca: a linha da casca, que fica bem abaixo da spec', () => {
+    const r = lintHtml(docComConstrutor({ shellOpts: { form: '' } }));
+    assert.equal(r.linha('erro', 'sem [data-pb-form]'), 25, r.out);
+  });
+
+  test('aviso também vem com linha: a da pergunta órfã', () => {
+    const r = lintHtml(comSpec(`${RADIO_OK}
+  <question id="orfa" type="text" label="Nunca usada" default="x"/>`, TPL));
+    assert.equal(r.linha('aviso', 'a pergunta "orfa" não aparece'), 17, r.out);
   });
 });

@@ -89,6 +89,20 @@ describe('estrutura do documento', () => {
   test('id duplicado é erro', () => {
     erro(doc('<div id="x"></div><div id="x"></div>', { hooks: false }), 'id duplicado "x"');
   });
+
+  // A linha é o relatório: `lineOf()` devolvendo sempre 1 passava por esta suíte inteira.
+  // O corpo de `doc()` começa sempre na linha 11, então os números aqui são determinísticos.
+  test('id duplicado: a linha do SEGUNDO, citando a linha do primeiro', () => {
+    const r = lintHtml(doc('<div id="x"></div>\n<p>meio</p>\n<div id="x"></div>', { hooks: false }));
+    assert.equal(r.linha('erro', 'id duplicado'), 13, r.out);
+    assert.ok(r.tem('erro', 'id duplicado "x" (também na linha 11)'), r.out);
+  });
+
+  test('a linha acompanha o problema quando ele desce no arquivo', () => {
+    const enche = Array.from({ length: 20 }, (_, i) => `<p>linha de enchimento ${i}</p>`).join('\n');
+    const r = lintHtml(doc(`${enche}\n<pre><code>ls</code></pre>`, { hooks: false }));
+    assert.equal(r.linha('erro', 'sem class="language-XXX"'), 31, r.out);
+  });
 });
 
 // ───────────────────────────────────────────────────────────────────── abas ──

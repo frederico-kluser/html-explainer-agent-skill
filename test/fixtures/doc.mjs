@@ -24,6 +24,17 @@ export const HOOKS = `<script>
 })();
 </script>`;
 
+/**
+ * Os mesmos ganchos com UM deles arrancado — para que o fixture de cada metade do §4 dispare
+ * exatamente um erro. `hooksSem('data-live')` tira a linha do `code.closest`;
+ * `hooksSem('copy')` tira a exposição do `window.__explainerCopy`.
+ */
+export function hooksSem(qual) {
+  if (qual === 'data-live') return HOOKS.replace(/\n\s*if \(code\.closest\('\[data-live\]'\)\) return;[^\n]*/, '');
+  if (qual === 'copy') return HOOKS.replace('window.__explainerCopy = copyText;', 'var naoExposto = copyText;');
+  throw new Error(`hooksSem("${qual}"): só existem "data-live" e "copy"`);
+}
+
 /** A saída padrão do construtor base, já escapada como o documento a traz. */
 export const SAIDA_PADRAO = `&lt;root&gt;
   &lt;a/&gt;

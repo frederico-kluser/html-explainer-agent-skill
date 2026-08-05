@@ -150,6 +150,14 @@ describe('defaults', () => {
     assert.deepEqual(PB.defaults(m), { r: 'a' });
   });
 
+  // O `default` PELADO (sem `="…"`) não entra neste fixture, e a razão importa: em XML todo
+  // atributo é nome="valor", então o DOMParser do navegador não "lê como ausente" — ele
+  // RECUSA a spec inteira («Specification mandates value for attribute default») e a aba abre
+  // com o aviso vermelho, sem pergunta nenhuma. Afirmar aqui que a opção "fica desmarcada"
+  // seria documentar uma semântica que não existe no navegador. Quem cobre esse caso é o
+  // `parseXml()` do gerador, que recusa com a linha — ver new-builder.test.mjs
+  // («atributo pelado»). O que cabe testar aqui é o que o navegador de fato aceita e ignora:
+  // um valor presente que não seja exatamente "true".
   test('só o valor exato "true" marca a opção', () => {
     const m = modelo(`<prompt-builder id="p">
       <question id="c" type="checkbox" label="C">
@@ -157,7 +165,8 @@ describe('defaults', () => {
         <option value="um" label="um" default="1"/>
         <option value="yes" label="yes" default="yes"/>
         <option value="maiusc" label="maiusc" default="TRUE"/>
-        <option value="pelado" label="pelado" default/>
+        <option value="vazio" label="vazio" default=""/>
+        <option value="espaco" label="espaco" default=" true "/>
       </question>
       <template><![CDATA[{{c}}]]></template>
     </prompt-builder>`);

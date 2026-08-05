@@ -8,6 +8,21 @@
  * O que este parser precisa entender (e entende): CDATA, comentário XML, tag auto-fechada,
  * aspas simples e duplas, e `>` dentro de valor de atributo — todas armadilhas que a spec
  * do construtor pode legitimamente conter.
+ *
+ * ── A DIREÇÃO DA DIVERGÊNCIA (leia antes de escrever um fixture novo) ────────────────────
+ * Ele NÃO é um validador, e diverge do `DOMParser` sempre para o MESMO lado: onde o navegador
+ * é FATAL, aqui é tolerante. O `DOMParser` recusa o documento inteiro (e a aba abre com o
+ * aviso vermelho) em pelo menos oito casos que este parser engole calado:
+ *
+ *     `<` cru no valor de um atributo · atributo repetido na mesma tag · entidade não
+ *     declarada (&nbsp;) · `&` cru no texto · valor de atributo sem aspas · atributo pelado
+ *     (`default` sem `="…"`) · tag nunca fechada · tags cruzadas (`<a><b></a></b>`)
+ *
+ * Consequência prática: um fixture MAL-FORMADO passa aqui e morre no navegador — e o teste
+ * que o usasse estaria afirmando uma semântica que não existe. Fixture de spec inválida é
+ * assunto do `parseXml()` do `new-builder.mjs`, que recusa esses oito casos com o número da
+ * linha (ver `new-builder.test.mjs`). Aqui só entram fixtures BEM-FORMADOS.
+ * A divergência nunca é ao contrário: não há caso em que este parser recuse e o navegador aceite.
  */
 
 const ENTS = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
@@ -40,7 +55,12 @@ function parseAttrs(raw) {
   let m;
   while ((m = re.exec(raw))) {
     const name = m[1];
-    if (Object.prototype.hasOwnProperty.call(out, name)) continue; // o DOMParser fica com o primeiro
+    // Atributo repetido: aqui vale o PRIMEIRO. Não é "o que o DOMParser faz" — o DOMParser
+    // não fica com nenhum: atributo repetido viola a WFC "Unique Att Spec" do XML 1.0 e ele
+    // RECUSA o documento («Attribute value redefined»). Ficar com o primeiro é só a escolha
+    // tolerante deste parser, na direção descrita no topo do arquivo; spec com atributo
+    // repetido é caso do parseXml() do gerador, que a recusa nomeando a linha.
+    if (Object.prototype.hasOwnProperty.call(out, name)) continue;
     const v = m[2] ?? m[3] ?? m[4] ?? null;
     out[name] = v === null ? '' : decode(v);
   }

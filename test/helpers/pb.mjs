@@ -52,10 +52,14 @@ export function specSource(html = BUILDER_HTML) {
   return m[1];
 }
 
-/** O texto (já desescapado) do `<code data-pb-output>` pré-preenchido no arquivo. */
+/**
+ * O texto (já desescapado) do `<code data-pb-output>` pré-preenchido num documento.
+ * A linguagem não é fixada em `xml` de propósito: o gerador copia o `lang` da spec para a
+ * classe, e o teste do documento GERADO precisa achar o bloco com qualquer linguagem.
+ */
 export function outputSource(html = BUILDER_HTML) {
-  const m = html.match(/<code class="language-xml" data-pb-output>([\s\S]*?)<\/code>/);
-  if (!m) throw new Error('não achei o <code data-pb-output> no prompt-builder.html');
+  const m = html.match(/<code class="language-[^"]*" data-pb-output>([\s\S]*?)<\/code>/);
+  if (!m) throw new Error('não achei o <code data-pb-output> no HTML');
   return unescapeHtml(m[1]);
 }
 
