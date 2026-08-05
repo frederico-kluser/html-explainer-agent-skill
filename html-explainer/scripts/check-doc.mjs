@@ -417,6 +417,59 @@ function preRanges(s) {
 }
 
 const QUESTION_TYPES = ['radio', 'checkbox', 'text', 'textarea'];
+// O runtime une os fragmentos com JOINERS[q.join] || JOINERS.newline — só estes quatro nomes
+// existem no mapa, e o que não estiver aqui vira newline sem avisar ninguém.
+const JOIN_VALUES = ['newline', 'blank-line', 'comma', 'space'];
+
+/** Todo <script>…</script> do HTML cru, com atributos em [1] e miolo em [2]. */
+const SCRIPT_RE = () => new RegExp(`<script\\b${ATTRS_SRC}>([\\s\\S]*?)</script>`, 'gi');
+
+/**
+ * Faixas [start, end) do que, no texto de uma spec, NÃO é markup da spec: comentário XML e
+ * seção CDATA. A varredura é linear e imita a do próprio XML — comentário e CDATA não se
+ * aninham, e quem ABRE PRIMEIRO manda. É por isso que não dá para usar dois `replace` em
+ * sequência, em nenhuma ordem: `<!-- ]]> -->` é um comentário inteiro (o `]]>` de dentro é
+ * texto), e `<![CDATA[ <!-- ]]>` é um CDATA cujo `<!--` é texto. Cada ordem fixa erra um
+ * dos dois casos; a varredura por quem-vem-antes acerta os dois, e é O(n).
+ *
+ * CDATA sem `]]>` não é seção nenhuma (o DOMParser recusaria a spec, e o `replace` anterior
+ * também não casava): a varredura só pula o marcador e segue lendo como texto, que é o
+ * comportamento que já existia. Comentário sem `-->` vira faixa até o fim, marcada com
+ * `unclosed` para quem chamou poder dizer isso em voz alta em vez de engolir a spec calado.
+ */
+function inertRanges(body) {
+  const out = [];
+  let i = 0;
+  for (;;) {
+    const c = body.indexOf('<!--', i);
+    const d = body.indexOf('<![CDATA[', i);
+    if (c === -1 && d === -1) break;
+    if (d === -1 || (c !== -1 && c < d)) {
+      const end = body.indexOf('-->', c + 4);
+      if (end === -1) { out.push({ start: c, end: body.length, kind: 'comment', unclosed: true }); break; }
+      out.push({ start: c, end: end + 3, kind: 'comment' });
+      i = end + 3;
+    } else {
+      const end = body.indexOf(']]>', d + 9);
+      if (end === -1) { i = d + 9; continue; }
+      out.push({ start: d, end: end + 3, kind: 'cdata' });
+      i = end + 3;
+    }
+  }
+  return out;
+}
+
+/** Troca cada faixa por espaços, mantendo o tamanho — o nº de linha continua certo. */
+function blankRanges(body, ranges) {
+  if (!ranges.length) return body;
+  let out = '';
+  let i = 0;
+  for (const r of ranges) {
+    out += body.slice(i, r.start) + ' '.repeat(r.end - r.start);
+    i = r.end;
+  }
+  return out + body.slice(i);
+}
 
 function promptBuilder(html, masked, structMask, err, warn) {
   // A spec vive dentro de <script type="application/xml"> e mask() apaga o miolo de TODO
@@ -424,14 +477,36 @@ function promptBuilder(html, masked, structMask, err, warn) {
   // que *ensina* este markup: dentro de <pre> o "<" está escapado (&lt;script), e o que
   // não estiver já é reprovado por codeBlocks().
   const specs = [];
-  for (const m of html.matchAll(new RegExp(`<script\\b${ATTRS_SRC}>([\\s\\S]*?)</script>`, 'gi'))) {
+  for (const m of html.matchAll(SCRIPT_RE())) {
     if (!/<prompt-builder\b/i.test(m[2])) continue;
-    // Só bloco INERTE é spec. Script sem type (ou com type de JS) o navegador EXECUTA:
-    // ali um "<prompt-builder>" é comentário do runtime, não a spec do documento — e sem
-    // este filtro o próprio runtime seria lido como uma spec quebrada.
     const sa = attrsOf(m[1]);
-    const tipo = (sa.get('type') || '').toLowerCase();
-    if (!tipo || tipo === "module" || /^(?:text\/|application\/)?(?:javascript|ecmascript)/.test(tipo)) continue;
+    // O type é comparado sem os parâmetros de mídia: "application/xml; charset=utf-8" é o
+    // mesmo tipo, e o navegador também o lê assim.
+    const tipo = (sa.get('type') || '').toLowerCase().split(';')[0].trim();
+    // Script sem type (ou com type de JS) o navegador EXECUTA. Nele, um "<prompt-builder>"
+    // costuma ser só uma menção em string ou comentário — é o caso do próprio runtime do
+    // construtor, que traz a frase «a raiz da spec precisa ser <prompt-builder>». Só conta
+    // como spec (quebrada) o bloco executável que tem o elemento raiz INTEIRO, abertura e
+    // fechamento: aí não é menção, é uma spec parada no lugar errado.
+    const executavel = !tipo || tipo === 'module'
+      || /^(?:text\/|application\/)?(?:javascript|ecmascript)/.test(tipo);
+    if (executavel && !/<\/prompt-builder\s*>/i.test(m[2])) continue;
+
+    // A checagem mais grave: sem type="application/xml" o bloco deixa de ser inerte e o
+    // navegador tenta rodar XML como JavaScript. Ela vem ANTES de qualquer outra coisa
+    // porque o documento sairia daqui com selo verde se o bloco fosse só descartado.
+    if (tipo !== 'application/xml') {
+      if (executavel)
+        err(`a spec do construtor está num <script> ${tipo ? `type="${tipo}"` : 'sem type'} — o navegador executa `
+          + 'o bloco como JavaScript, o XML estoura em SyntaxError no console e a aba do construtor abre vazia',
+            m.index, 'o bloco só fica inerte com <script type="application/xml" id="pb-spec-XXX">');
+      else
+        err(`a spec do construtor está num <script type="${tipo}"> — o tipo do contrato é "application/xml", que é `
+          + 'o que o gerador e o linter procuram para achar a spec; em qualquer outro tipo ela vira um bloco '
+          + 'anônimo que ninguém mais reconhece', m.index,
+            'troque para type="application/xml"');
+    }
+
     specs.push({
       id: sa.get('id') ?? null,
       index: m.index,
@@ -464,9 +539,37 @@ function promptBuilder(html, masked, structMask, err, warn) {
 
   if (!specs.length && !shells.length) return; // documento sem construtor é válido
 
+  // ── ganchos do §4, no runtime do documento ─────────────────────────────────
+  // As duas linhas moram DENTRO de um <script>, e o mask() esvazia o miolo de todo <script>:
+  // procurá-las no `masked` acharia sempre nada. Daí o HTML cru — mas só o corpo dos <script>,
+  // e não o arquivo inteiro: um documento que EXIBE as duas linhas num bloco de código não
+  // passa a tê-las por causa disso.
+  let js = '';
+  for (const m of html.matchAll(SCRIPT_RE())) js += m[2] + '\n';
+  const ondeGancho = (shells[0] ?? specs[0]).index;
+
+  if (!/\.closest\(\s*(['"])\[data-live\]\1\s*\)/.test(js))
+    err('o runtime do documento não pula os blocos [data-live] ao guardar a fonte crua — o botãozinho de copiar '
+      + 'do hover fica com o prompt do momento do load e nunca mais atualiza, por mais que o formulário mude',
+        ondeGancho, "acrescente «if (code.closest('[data-live]')) return;» antes do sources.set(code, …)");
+
+  // `=(?!=)`: o gancho é a ATRIBUIÇÃO. O próprio runtime do construtor traz um
+  // `typeof global.__explainerCopy === 'function'` — leitura, não gancho —, e sem o
+  // negative lookahead esse teste passaria por instalação do gancho.
+  if (!/\b(?:window|globalThis|global)\s*\.\s*__explainerCopy\s*=(?!=)/.test(js))
+    err('o runtime do documento não expõe window.__explainerCopy — o botão "Copiar prompt" do construtor não '
+      + 'tem como reusar o caminho de cópia do documento e cai no fallback próprio, que é uma segunda '
+      + 'implementação da mesma coisa para manter',
+        ondeGancho, 'acrescente «window.__explainerCopy = copyText;» ao final da IIFE do runtime do template');
+
   // ── casca ↔ spec ───────────────────────────────────────────────────────────
   const byId = new Map();
   for (const s of specs) if (s.id) byId.set(s.id, s);
+
+  // Duas cascas na mesma spec montam o MESMO modelo, e os ids gerados saem do id da spec:
+  // saem iguais nas duas. Como o runtime lê e escreve tudo por getElementById, que devolve
+  // o primeiro do documento, a segunda cópia vira decoração.
+  const porSpec = new Map();
 
   for (const sh of shells) {
     const who = sh.id ? ` #${sh.id}` : '';
@@ -478,6 +581,13 @@ function promptBuilder(html, masked, structMask, err, warn) {
           sh.index);
     } else {
       byId.get(sh.spec).used = true;
+      const antes = porSpec.get(sh.spec);
+      if (antes)
+        err(`duas cascas com data-pb-spec="${sh.spec}" (a outra na linha ${lineOf(html, antes.index)}) — as duas `
+          + 'montam o mesmo construtor, com os mesmos ids gerados; o runtime lê os controles por getElementById, '
+          + 'que devolve sempre o primeiro do documento, então clicar na segunda não muda o prompt dela',
+            sh.index, 'um construtor por spec: duplique a spec com outro id, ou apague a casca repetida');
+      else porSpec.set(sh.spec, sh);
     }
 
     // O miolo da casca é lido do `masked` e não do `structMask`: a saída mora dentro de
@@ -536,9 +646,52 @@ function promptBuilder(html, masked, structMask, err, warn) {
   // ── miolo da spec ──────────────────────────────────────────────────────────
   for (const s of specs) {
     // Fragmento de <option> e esqueleto do <template> são XML arbitrário dentro de CDATA:
-    // se não saírem da frente, um fragmento que cite <option> vira opção fantasma. O
-    // branco preserva o tamanho, então o nº de linha continua certo.
-    const struct = s.body.replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, (m) => ' '.repeat(m.length));
+    // se não saírem da frente, um fragmento que cite <option> vira opção fantasma. O mesmo
+    // vale para o COMENTÁRIO XML, e por um motivo mais cruel: comentar é justamente escrever
+    // «escolha a <question> e a <option> certas», e sem apagá-lo essa frase vira uma pergunta
+    // fantasma — sem id e sem type — que reprova um documento perfeito. O branco preserva o
+    // tamanho, então o nº de linha continua certo.
+    const inerts = inertRanges(s.body);
+    const struct = blankRanges(s.body, inerts);
+
+    // Só os comentários, com o CDATA INTACTO: é neste texto que os {{...}} são procurados,
+    // porque eles moram dentro do CDATA do <template>. Assim um {{marcador}} comentado não
+    // vira marcador fantasma, e nenhum {{marcador}} de verdade some.
+    const tplText = blankRanges(s.body, inerts.filter((r) => r.kind === 'comment'));
+
+    // Comentário sem `-->` engoliria o resto da spec em branco, e o documento sairia daqui
+    // acusado de "spec sem <template>" — sintoma sem causa. O DOMParser também recusa a spec
+    // inteira nesse caso, então é erro de verdade, e vale dizer qual é.
+    const aberto = inerts.find((r) => r.unclosed);
+    if (aberto)
+      err('comentário XML aberto com <!-- e nunca fechado — daí até o fim da spec tudo vira comentário: '
+        + 'o DOMParser recusa a spec inteira e a aba do construtor abre com o aviso vermelho',
+          s.at + aberto.start, 'feche o comentário com -->');
+
+    // ── elemento raiz ──
+    // Contado no texto estrutural: um <prompt-builder> citado dentro de um CDATA (fragmento
+    // que ensina o próprio formato) já saiu da frente e não conta como segunda raiz.
+    const raizes = [...struct.matchAll(tagRe('prompt-builder'))];
+    if (raizes.length > 1)
+      err(`${raizes.length} elementos <prompt-builder> no mesmo <script> — XML só admite um elemento raiz, `
+        + 'então o DOMParser recusa a spec INTEIRA e a aba abre com o aviso vermelho de spec inválida, '
+        + 'sem nenhuma pergunta', s.at + raizes[1].index,
+          'um <script> por construtor: separe as specs em dois blocos, cada um com seu id');
+
+    if (raizes.length) {
+      const rid = attrsOf(raizes[0][1]).get('id');
+      const ondeRaiz = s.at + raizes[0].index;
+      if (rid == null || rid === '')
+        err('<prompt-builder> sem id — o runtime cai no prefixo genérico "pb": os ids gerados viram "pb-<pergunta>" '
+          + 'e o estado salvo vai para localStorage["pb:pb"], então dois construtores assim no mesmo documento '
+          + 'nascem com ids duplicados e disputam a mesma memória', ondeRaiz,
+            '<prompt-builder id="plano" lang="xml" title="…">');
+      else if (!/^[a-z][a-z0-9-]*$/.test(rid))
+        err(`id de construtor inválido "${rid}" — ele é colado na frente de TODO id gerado `
+          + '(<pb-id>-<pergunta>-<opção>), e com maiúscula, espaço ou acento esses ids deixam de ser '
+          + 'endereçáveis por âncora #id e por seletor CSS', ondeRaiz,
+            'use [a-z][a-z0-9-]*, como nos ids de pergunta');
+    }
 
     // <template>: a posição vem do texto estrutural, o conteúdo vem do CRU — os {{...}}
     // moram justamente dentro do CDATA que acabou de ser apagado.
@@ -571,6 +724,31 @@ function promptBuilder(html, masked, structMask, err, warn) {
       const nome = id ? `"${id}"` : 'sem id';
       if (!QUESTION_TYPES.includes(type))
         err(`pergunta ${nome} com type="${qa.get('type') ?? ''}" — só existem radio, checkbox, text e textarea`, at);
+
+      // `join` é o separador dos fragmentos das opções marcadas — só existe em checkbox.
+      if (qa.has('join')) {
+        const j = qa.get('join');
+        if (!JOIN_VALUES.includes(j))
+          err(`pergunta ${nome} com ${j === null ? '`join` pelado' : `join="${j}"`} — o runtime só conhece `
+            + 'newline, blank-line, comma e space; qualquer outro valor ele troca por newline sem avisar, '
+            + 'e o prompt sai com os fragmentos unidos de um jeito que você não escreveu', at,
+              'join="newline" (padrão) · "blank-line" · "comma" · "space"');
+        else if (type !== 'checkbox' && QUESTION_TYPES.includes(type))
+          warn(`join="${j}" na pergunta ${nome}, que é ${type} — join só serve para unir os fragmentos de várias `
+             + 'opções marcadas, ou seja, só em checkbox; aqui o runtime lê o atributo e nunca o usa', at,
+               'tire o join, ou troque a pergunta para type="checkbox"');
+      }
+
+      // O contrato proíbe <option> em text/textarea, e o runtime confirma: pbField monta a caixa
+      // de digitação e nem olha para as opções, que ficam no XML sem chegar à tela.
+      if (type === 'text' || type === 'textarea') {
+        const [ta, tb] = bodyRange(struct, q, 'question');
+        for (const o of struct.slice(ta, tb).matchAll(tagRe('option')))
+          err(`<option> dentro da pergunta ${nome}, que é ${type} — o runtime monta uma caixa de digitação e `
+            + 'ignora as opções: elas não aparecem na tela nem entram no prompt, e quem escreveu a spec '
+            + 'acha que configurou alguma coisa', s.at + ta + o.index,
+              'opção só existe em radio e checkbox; para sugerir um valor inicial use default="…" na pergunta');
+      }
 
       if (type !== 'radio' && type !== 'checkbox') continue;
 
@@ -625,7 +803,7 @@ function promptBuilder(html, masked, structMask, err, warn) {
     const usados = new Set();
     for (const t of tpls) {
       const [a, b] = bodyRange(struct, t, 'template');
-      for (const m of s.body.slice(a, b).matchAll(/\{\{([^{}]*)\}\}/g)) {
+      for (const m of tplText.slice(a, b).matchAll(/\{\{([^{}]*)\}\}/g)) {
         const nome = m[1].trim();
         usados.add(nome);
         if (!ids.has(nome))
