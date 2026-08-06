@@ -18,6 +18,7 @@ SKILLS=(html-explainer)
 # Diretórios de skill dos agentes. Um que não existir é simplesmente pulado — não
 # criamos árvore de agente que a pessoa não usa.
 AGENT_DIRS=(
+  "$HOME/.claude-deepseek/skills"   # deep-orchestrator harness (primary)
   "$HOME/.claude/skills"
   "$HOME/.claude-secundaria/skills"
   "$HOME/.agents/skills"
