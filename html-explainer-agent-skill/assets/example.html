@@ -174,6 +174,17 @@ node ~/.claude/skills/html-explainer-agent-skill/scripts/check-doc.mjs ./cache.h
 <span class="text-danger">erro</span>  doc.html:15  HTML não escapado dentro de &lt;code&gt; — escape &amp; &lt; &gt; como &amp;amp; &amp;lt; &amp;gt;
 <span class="text-danger">erro</span>  doc.html:4   URL de CDN sem versão — amanhã ela aponta para outro código</code></pre>
 
+      <div class="alert alert-info d-flex gap-2" role="alert">
+        <i class="bi bi-magic flex-shrink-0"></i>
+        <div>
+          <strong>Construtor de prompt — opcional, e só sob pedido:</strong> uma aba a mais que
+          remonta um prompt XML ao vivo conforme você clica em <code>radio</code> e
+          <code>checkbox</code>. Documento normal não tem construtor;
+          <a href="https://frederico-kluser.github.io/html-explainer-skill/html-explainer/assets/prompt-builder.html">o
+          exemplo publicado</a> mostra um funcionando.
+        </div>
+      </div>
+
       <div class="alert alert-success d-flex gap-2 mb-0" role="alert">
         <i class="bi bi-check-circle-fill flex-shrink-0"></i>
         <div>
@@ -640,6 +651,7 @@ document.querySelectorAll('[data-bs-toggle="tab"]').forEach(t =&gt; {
 
   var sources = new WeakMap();
   document.querySelectorAll('pre > code').forEach(function (code) {
+    if (code.closest('[data-live]')) return;   // texto muda em runtime: leia na hora do clique
     sources.set(code, code.textContent.replace(/\n$/, ''));
   });
 
@@ -687,6 +699,10 @@ document.querySelectorAll('[data-bs-toggle="tab"]').forEach(t =&gt; {
     });
     pre.appendChild(btn);
   });
+
+  // Exposto para quem estende o documento (ex.: o construtor de prompt) reusar o mesmo
+  // caminho de cópia — antes do return abaixo, senão documento sem aba ficaria sem o gancho.
+  window.__explainerCopy = copyText;
 
   var tabs = document.querySelectorAll('[data-bs-toggle="tab"]');
 

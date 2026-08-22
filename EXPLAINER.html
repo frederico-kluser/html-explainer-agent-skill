@@ -1,0 +1,1685 @@
+<!doctype html>
+<!--
+  Documento HTML de arquivo único, tema escuro, conteúdo em abas.
+  Gerado pela skill html-explainer 1.1.0 — scripts/new-doc.mjs --builder --spec spec.xml.
+  Nada de npm, nada de build: tudo entra por CDN. Abre com duplo clique (file://).
+-->
+<html lang="pt-BR" data-bs-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Diz ao navegador que a página é escura ANTES do CSS carregar: sem flash branco,
+     e os controles nativos (scrollbar, select, input) já nascem escuros. -->
+<meta name="color-scheme" content="dark">
+<title>O construtor de prompt: o que esta rodada mudou na skill</title>
+
+<link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+      integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB"
+      crossorigin="anonymous">
+<link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css"
+      integrity="sha384-CK2SzKma4jA5H/MXDUU7i1TqZlCFaD4T01vtyDFvPlD97JQyS+IsSh1nI2EFbpyk"
+      crossorigin="anonymous">
+<link rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css"
+      integrity="sha384-wH75j6z1lH97ZOpMOInqhgKzFkAInZPPSPlZpYKYTOqsaizPvhQZmAtLcPKXpLyH"
+      crossorigin="anonymous">
+
+<style>
+  /* Todo o CSS do documento cabe aqui. Se precisar de mais que isto, é porque
+     existe um utilitário do Bootstrap que resolve — procure antes de escrever. */
+
+  /* Âncora não fica escondida atrás da navbar fixa. */
+  [id] { scroll-margin-top: 5rem; }
+
+  /* Bloco de código: espaço à direita para o botão de copiar não cobrir o texto. */
+  pre { position: relative; margin-bottom: 1rem; }
+  pre code.hljs { padding-right: 4rem; border-radius: var(--bs-border-radius); font-size: .875rem; }
+
+  .copy-btn { position: absolute; top: .5rem; right: .5rem; opacity: .4; transition: opacity .15s; }
+  pre:hover .copy-btn, .copy-btn:focus-visible { opacity: 1; }
+
+  /* Abrir o arquivo em #pane-x foca o painel (bom: o leitor de tela cai no conteúdo),
+     e o outline branco do navegador fica gritante. Anel discreto, do tema, no lugar —
+     tirar o indicador por completo quebraria quem navega por teclado. */
+  .tab-pane:focus-visible { outline: 0; box-shadow: 0 0 0 .2rem rgba(var(--bs-emphasis-color-rgb), .15); }
+
+  /* Impressão/PDF: abre TODAS as abas, senão o papel sai com uma só. */
+  @media print {
+    /* .d-print-none do Bootstrap resolve o resto: marque com ela o que é só de tela. */
+    .nav-tabs, .copy-btn { display: none !important; }
+    .tab-content > .tab-pane { display: block !important; opacity: 1 !important; page-break-inside: avoid; }
+    .tab-pane::before { content: attr(data-print-title); display: block;
+                        font-size: 1.25rem; font-weight: 600; margin: 1.5rem 0 .5rem; }
+    /* pb:print:begin — no papel o prompt inteiro precisa sair: rolagem e sticky não existem em folha. */
+    .prompt-builder pre { max-height: none !important; overflow: visible !important; }
+    .prompt-builder .position-sticky { position: static !important; }
+    /* pb:print:end */
+  }
+</style>
+</head>
+
+<body class="bg-body">
+
+<nav class="navbar navbar-expand-lg sticky-top bg-body-tertiary border-bottom">
+  <div class="container">
+    <span class="navbar-brand fw-semibold"><i class="bi bi-file-earmark-code me-1"></i>O construtor de prompt: o que esta rod…</span>
+    <span class="navbar-text small text-body-secondary d-none d-md-inline">html-explainer v1.1.0 · 13 commits · ago/2026</span>
+  </div>
+</nav>
+
+<main class="container py-4" style="max-width: 60rem">
+
+  <header class="mb-4">
+    <h1 class="display-6 fw-semibold">O construtor de prompt: o que esta rodada mudou na skill</h1>
+    <p class="lead text-body-secondary">A skill ganhou uma aba opcional que remonta um prompt XML a
+      cada clique. Este documento foi gerado por ela, e a última aba é a própria feature funcionando.</p>
+    <div class="d-flex flex-wrap gap-2">
+      <span class="badge text-bg-secondary">html-explainer 1.1.0</span>
+      <span class="badge text-bg-secondary">13 commits</span>
+      <span class="badge text-bg-success">333 testes · 0 falhas</span>
+      <span class="badge text-bg-secondary">ago/2026</span>
+    </div>
+  </header>
+
+  <!-- ABAS
+       Regras que não podem ser quebradas:
+       · <ul role="tablist"> e cada <button role="tab">
+       · button.id  ←→  tabpanel.aria-labelledby
+       · button.data-bs-target ←→ #id do tabpanel (e aria-controls com o mesmo id, sem #)
+       · exatamente UM botão .active + UM painel .show.active
+       O Bootstrap já faz navegação por seta/Home/End no tablist; não reimplemente. -->
+  <ul class="nav nav-tabs" id="doc-tabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="tab-o-que-mudou" data-bs-toggle="tab" data-bs-target="#pane-o-que-mudou"
+                type="button" role="tab" aria-controls="pane-o-que-mudou" aria-selected="true">
+          O que mudou
+        </button>
+      </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-como-funciona" data-bs-toggle="tab" data-bs-target="#pane-como-funciona"
+                type="button" role="tab" aria-controls="pane-como-funciona" aria-selected="false">
+          Como funciona
+        </button>
+      </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-de-para" data-bs-toggle="tab" data-bs-target="#pane-de-para"
+                type="button" role="tab" aria-controls="pane-de-para" aria-selected="false">
+          De-para
+        </button>
+      </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-o-que-quase-passou" data-bs-toggle="tab" data-bs-target="#pane-o-que-quase-passou"
+                type="button" role="tab" aria-controls="pane-o-que-quase-passou" aria-selected="false">
+          O que quase passou
+        </button>
+      </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-divida" data-bs-toggle="tab" data-bs-target="#pane-divida"
+                type="button" role="tab" aria-controls="pane-divida" aria-selected="false">
+          Dívida
+        </button>
+      </li>
+<!-- pb:tab:begin pb-proxima -->
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="tab-pb-proxima" data-bs-toggle="tab" data-bs-target="#pane-pb-proxima"
+              type="button" role="tab" aria-controls="pane-pb-proxima" aria-selected="false">
+        <i class="bi bi-sliders me-1"></i>Construtor
+      </button>
+    </li>
+<!-- pb:tab:end pb-proxima -->
+  </ul>
+
+  <div class="tab-content border border-top-0 rounded-bottom p-4" id="doc-tabs-content">
+
+    <div class="tab-pane fade show active" id="pane-o-que-mudou" role="tabpanel"
+           aria-labelledby="tab-o-que-mudou" tabindex="0" data-print-title="O que mudou">
+        <h2 class="h4">O que mudou</h2>
+
+        <p><strong>A skill passou a saber gerar um construtor de prompt, e só quando pedem.</strong>
+          É uma aba a mais no documento: perguntas de <code>radio</code>, <code>checkbox</code>,
+          <code>text</code> e <code>textarea</code> à esquerda; à direita, o prompt XML remontado a
+          cada clique, com botão de copiar. Um documento normal do html-explainer continua saindo
+          exatamente como saía — <strong>zero</strong> caractere a mais.</p>
+
+        <p>O pedido original era literal: <em>"o prompt é definido em XML, o usuário responde
+          perguntas com checkbox ou radio, e de acordo com o que ele escolher muda o HTML final
+          gerando um construtor de prompt, com um botão de copiar, e o construtor tem sua própria
+          aba."</em> É isso que a aba <strong>Construtor</strong> deste arquivo faz.</p>
+
+        <h3 class="h5 mt-4">A linha que liga a feature</h3>
+
+        <p>Uma flag no gerador que já existia. Sem <code>--builder</code> nada disto é carregado:</p>
+
+<pre><code class="language-bash">node html-explainer/scripts/new-doc.mjs "Plano da migração" ./plano.html --builder</code></pre>
+
+        <p>O documento sai com a aba pronta e <em>funcionando</em> — não com um esqueleto para
+          preencher. O fluxo mais comum é o outro, com as perguntas do seu caso:</p>
+
+<pre><code class="language-bash">node html-explainer/scripts/new-builder.mjs --example &gt; spec.xml   # edite as perguntas
+node html-explainer/scripts/new-builder.mjs spec.xml --into ./plano.html
+node html-explainer/scripts/check-doc.mjs ./plano.html</code></pre>
+
+        <p>Foi assim que este arquivo nasceu — com a spec da aba <strong>Construtor</strong>, que
+          monta o prompt para pedir a <em>próxima</em> rodada de trabalho neste mesmo repositório.</p>
+
+        <h3 class="h5 mt-4">O que entrou, em números medidos</h3>
+
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead>
+              <tr><th scope="col">Peça</th><th scope="col">Arquivo</th><th scope="col">Tamanho</th><th scope="col">Papel</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Contrato</th>
+                <td><code>references/prompt-builder.md</code></td>
+                <td>449 linhas (novo)</td>
+                <td>O esquema XML, o contrato do DOM e as armadilhas. Congelado antes do código.</td>
+              </tr>
+              <tr>
+                <th scope="row">Runtime</th>
+                <td><code>assets/prompt-builder.html</code></td>
+                <td>1187 linhas (novo)</td>
+                <td>Implementação de referência, completa e abrível. O gerador extrai dela.</td>
+              </tr>
+              <tr>
+                <th scope="row">Gerador</th>
+                <td><code>scripts/new-builder.mjs</code></td>
+                <td>789 linhas (novo)</td>
+                <td>Spec XML → os blocos da aba. É ele que produz todo documento futuro.</td>
+              </tr>
+              <tr>
+                <th scope="row">Linter</th>
+                <td><code>scripts/check-doc.mjs</code></td>
+                <td>+544 linhas</td>
+                <td>Valida a spec do construtor. Reprova o que só quebraria no navegador.</td>
+              </tr>
+              <tr>
+                <th scope="row">Suíte</th>
+                <td><code>test/</code></td>
+                <td>333 testes (novo)</td>
+                <td>0 falhas, 3 <code>todo</code>. <code>node:test</code> puro, sem dependência.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="text-body-secondary small">Contagem de linhas por <code>wc -l</code> no arquivo
+          atual; as somas do linter por <code>git diff --stat fe98520..HEAD</code>. O diff inteiro
+          da rodada são 24 arquivos, 6664 inserções e 132 remoções.</p>
+
+        <h3 class="h5 mt-4">O que NÃO mudou — e é o ponto</h3>
+
+        <div class="row row-cols-1 row-cols-md-3 g-3">
+          <div class="col">
+            <div class="card h-100">
+              <div class="card-body">
+                <h4 class="card-title h6"><i class="bi bi-box me-1"></i>Zero dependência</h4>
+                <p class="card-text small text-body-secondary mb-0">Nenhum <code>node_modules</code>,
+                  nenhum lockfile, nenhum <code>npm install</code>. A suíte inteira é
+                  <code>node:test</code>. O documento continua puxando tudo de CDN.</p>
+              </div>
+            </div>
+          </div>
+          <div class="col">
+            <div class="card h-100">
+              <div class="card-body">
+                <h4 class="card-title h6"><i class="bi bi-file-earmark me-1"></i>Um arquivo</h4>
+                <p class="card-text small text-body-secondary mb-0">O construtor viaja dentro do
+                  <code>.html</code>: spec, casca e runtime. Salvar, mandar por anexo, abrir por
+                  duplo clique — continua valendo com construtor.</p>
+              </div>
+            </div>
+          </div>
+          <div class="col">
+            <div class="card h-100">
+              <div class="card-body">
+                <h4 class="card-title h6"><i class="bi bi-toggle-off me-1"></i>Desligado por padrão</h4>
+                <p class="card-text small text-body-secondary mb-0">Sem <code>--builder</code> o
+                  <code>new-doc.mjs</code> escreve o mesmo arquivo de sempre. O passo 5 do
+                  <code>SKILL.md</code> é condicional, não um sexto passo.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="alert alert-success d-flex gap-2 mt-4">
+          <i class="bi bi-check-circle-fill flex-shrink-0"></i>
+          <div><strong>A demonstração mais honesta:</strong> este arquivo passa no próprio linter com
+            <strong>0 erros e 0 avisos</strong>, e o prompt escrito no HTML da aba
+            <strong>Construtor</strong> é <strong>byte a byte</strong> (2497 bytes, 53 linhas) o que o
+            runtime monta com os padrões. A aba <em>De-para</em> mostra como isso é provado.</div>
+        </div>
+      </div>
+
+    <div class="tab-pane fade" id="pane-como-funciona" role="tabpanel"
+           aria-labelledby="tab-como-funciona" tabindex="0" data-print-title="Como funciona">
+        <h2 class="h4">Como funciona</h2>
+
+        <p><strong>Ninguém escreve o HTML do formulário — o runtime o gera a partir de uma spec
+          XML.</strong> Essa é a decisão de onde tudo o mais decorre, e ela existe por um motivo
+          específico: numa skill cuja obsessão declarada é markup ARIA correto, deixar um humano
+          escrever <code>id</code>, <code>for</code> e <code>aria-*</code> à mão para vinte controles
+          é convidar exatamente o erro que a skill inteira existe para evitar.</p>
+
+        <h3 class="h5 mt-4">Os três blocos, e o que cada um faz</h3>
+
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead>
+              <tr><th scope="col">Bloco</th><th scope="col">É</th><th scope="col">Quem o lê</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row"><code>pb:spec</code></th>
+                <td>Um <code>&lt;script type="application/xml"&gt;</code> com as perguntas, os
+                  fragmentos e o esqueleto do prompt.</td>
+                <td>O runtime, com <code>DOMParser</code>. E o linter, no HTML cru.</td>
+              </tr>
+              <tr>
+                <th scope="row"><code>pb:shell</code></th>
+                <td>A casca: um <code>[data-pb-form]</code> vazio, os botões, e o
+                  <code>&lt;code data-pb-output&gt;</code> já preenchido.</td>
+                <td>O runtime preenche o formulário; o navegador exibe o resto.</td>
+              </tr>
+              <tr>
+                <th scope="row"><code>pb:runtime</code></th>
+                <td>392 linhas de JS próprio, o último <code>&lt;script&gt;</code> do arquivo.</td>
+                <td>O navegador — e o Node, quando o gerador precisa recalcular a saída.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="h5 mt-4">Por que a spec é XML inerte dentro do arquivo</h3>
+
+        <p><code>type="application/xml"</code> é o ponto inteiro: o navegador <strong>não executa</strong>
+          o bloco e <strong>não parseia</strong> o conteúdo como HTML — ele fica texto cru até o
+          fechamento. É o que permite declarar markup dentro de markup sem build e sem escapar nada:</p>
+
+<pre><code class="language-xml">&lt;question id="frente" type="radio" label="Qual frente atacar"&gt;
+  &lt;option value="dividas" label="Fechar as dívidas" default="true"&gt;&lt;![CDATA[&lt;front id="dividas"&gt;
+  Feche as dívidas que a rodada anterior registrou de propósito, e só elas.
+&lt;/front&gt;]]&gt;&lt;/option&gt;
+&lt;/question&gt;</code></pre>
+
+        <p>O corpo do <code>&lt;option&gt;</code> — o fragmento que entra no prompt quando ela está
+          marcada — vive em <code>CDATA</code>, porque é XML e não pode ser reinterpretado. Com o
+          bloco inerte, o custo disso é zero: nem o navegador nem o parser de HTML olham para dentro.</p>
+
+        <h3 class="h5 mt-4">O linter valida a spec, não o DOM</h3>
+
+        <p>O DOM do formulário não existe em disco — ele nasce no navegador. Um linter de arquivo
+          nunca o veria. A escolha foi validar a <strong>fonte</strong>, e ela acabou sendo uma
+          checagem mais forte do que olhar o resultado: erros que só apareceriam como
+          <em>comportamento errado</em> viram erro de arquivo.</p>
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="small text-danger mb-1"><i class="bi bi-x-lg"></i> Só olhando o DOM gerado</div>
+            <p class="small text-body-secondary mb-0">Um <code>radio</code> sem <code>default</code>
+              gera markup impecável — e abre na primeira opção do XML. O documento fica correto e
+              <em>errado</em>: o padrão passa a ser a ordem em que alguém digitou.</p>
+          </div>
+          <div class="col-md-6">
+            <div class="small text-success mb-1"><i class="bi bi-check-lg"></i> Olhando a spec</div>
+            <p class="small text-body-secondary mb-0"><code>radio</code> sem exatamente um
+              <code>default</code> é <strong>erro</strong>. Junto com <code>{{marcador}}</code> órfão,
+              <code>id</code> de pergunta duplicado e <code>join</code> fora dos quatro valores.</p>
+          </div>
+        </div>
+
+        <h3 class="h5 mt-4">As duas linhas do <code>&lt;script&gt;</code> "congelado"</h3>
+
+        <p>A skill manda copiar o runtime do template inteiro e não editar. Esta rodada mudou duas
+          linhas dele — as únicas que ele já sofreu — e as duas estão lá <strong>mesmo em documento
+          sem construtor</strong>, para que o gancho nunca falte quando alguém acrescentar a aba depois.</p>
+
+        <p>A primeira faz o cache de fonte crua pular blocos vivos:</p>
+
+<pre><code class="language-js">document.querySelectorAll('pre &gt; code').forEach(function (code) {
+  if (code.closest('[data-live]')) return;   // texto muda em runtime: leia na hora do clique
+  sources.set(code, code.textContent.replace(/\n$/, ''));
+});</code></pre>
+
+        <p>Sem ela o documento mente de um jeito difícil de perceber: o cache é tirado <strong>uma
+          vez só</strong>, no <code>load</code>, então o botãozinho de hover entregaria para sempre o
+          prompt do momento em que a página abriu, por mais que o formulário mudasse. O bug só
+          aparece se você copiar <em>depois</em> de clicar em alguma coisa.</p>
+
+        <p>A segunda expõe o caminho de cópia — <code>navigator.clipboard</code> com o fallback
+          <code>execCommand</code> — para o botão grande do construtor reusar:</p>
+
+<pre><code class="language-js">window.__explainerCopy = copyText;</code></pre>
+
+        <p>A alternativa era uma segunda implementação de cópia dentro do runtime do construtor. Duas
+          cópias da mesma lógica divergem no primeiro caso de borda, e o caso de borda aqui é
+          justamente o <code>file://</code>, que é o modo em que o documento é feito para ser aberto.</p>
+
+        <h3 class="h5 mt-4">O bloco pré-preenchido é recomputado, nunca copiado</h3>
+
+        <p>O <code>&lt;code data-pb-output&gt;</code> nasce com o prompt padrão já dentro, escapado.
+          Ele existe para que <strong>três leitores diferentes</strong> recebam o mesmo texto: quem
+          abre sem JavaScript, quem imprime em PDF e quem lê o <em>view-source</em>.</p>
+
+        <p>Se esse texto não bater com o que o JavaScript monta, o documento mente para metade dos
+          leitores — e ninguém percebe, porque as duas versões nunca aparecem na mesma tela. Por isso
+          o gerador não copia esse bloco de lugar nenhum: ele <strong>roda o runtime real do
+          documento dentro do Node</strong> e escreve o resultado.</p>
+
+<pre><code class="language-js">// o runtime foi escrito para isto: instala __promptBuilder no global e SÓ DEPOIS
+// pergunta se existe `document`. Em Node não existe, e a execução para ali.
+new Function(runtimeSource())();
+const PB = globalThis.__promptBuilder;
+const prompt = PB.build(model, PB.defaults(model));   // é este texto que vai para o HTML</code></pre>
+
+        <p>É a mesma função que o navegador chamará no primeiro clique. Não há segunda implementação
+          da montagem para divergir — e a aba <em>De-para</em> mostra o comando que prova a
+          identidade byte a byte neste arquivo.</p>
+
+        <h3 class="h5 mt-4">Na carga, quem destaca é o <code>highlightAll</code></h3>
+
+        <p>O construtor <strong>não</strong> chama <code>hljs.highlightElement()</code> na primeira
+          montagem quando <code>document.readyState === 'loading'</code>. Nesse instante o
+          <code>hljs.highlightAll()</code> do runtime do template já deixou um ouvinte de
+          <code>DOMContentLoaded</code> agendado. A condição certa não é <em>"este bloco já foi
+          destacado?"</em> — na carga o atributo ainda nem existe — é <em>"há um
+          <code>highlightAll</code> a caminho?"</em>:</p>
+
+<pre><code class="language-js">var hlPendente = doc.readyState === 'loading';
+refresh(false, hlPendente);                    // com deferHl: escreve o texto, não destaca
+if (hlPendente) global.addEventListener('DOMContentLoaded', function () {
+  // rede de segurança: registrado DEPOIS do ouvinte do highlightAll, logo roda depois dele.
+  if (!out.dataset.highlighted &amp;&amp; global.hljs) global.hljs.highlightElement(out);
+});</code></pre>
+
+        <p>Na remontagem — todo clique dali em diante — vale a receita normal:
+          <code>textContent</code>, depois <code>delete code.dataset.highlighted</code>, depois
+          <code>highlightElement</code>. Sem o <code>delete</code>, o highlight.js 11.9+ recusa
+          re-destacar e escreve no console.</p>
+      </div>
+
+    <div class="tab-pane fade" id="pane-de-para" role="tabpanel"
+           aria-labelledby="tab-de-para" tabindex="0" data-print-title="De-para">
+        <h2 class="h4">De-para</h2>
+
+        <p><strong>24 arquivos, 6664 inserções, 132 remoções, em 13 commits — um por sub-tarefa.</strong>
+          Sete são novos; dos que existiam, só quatro mudaram de comportamento. Abaixo, o antes e o
+          depois de cada um, na ordem em que foram tocados.</p>
+
+<pre><code class="language-bash">git diff --stat fe98520..HEAD
+# 24 files changed, 6664 insertions(+), 132 deletions(-)</code></pre>
+
+        <h3 class="h5 mt-4">Arquivos novos</h3>
+
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead>
+              <tr><th scope="col">Arquivo</th><th scope="col">Linhas</th><th scope="col">Commit</th><th scope="col">O que é</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row"><code>references/prompt-builder.md</code></th>
+                <td>449</td><td><code>d442b49</code> + <code>20dfd0c</code></td>
+                <td>O contrato. As 162 primeiras foram congeladas <em>antes</em> da
+                  implementação; as 290 acrescentadas depois são os adendos v1.1, que escrever o
+                  runtime descobriu.</td>
+              </tr>
+              <tr>
+                <th scope="row"><code>assets/prompt-builder.html</code></th>
+                <td>1187</td><td><code>df1991f</code></td>
+                <td>Implementação de referência, abrível por duplo clique. Não é exemplo morto: o
+                  gerador extrai dela os três blocos, e a suíte executa o runtime dela.</td>
+              </tr>
+              <tr>
+                <th scope="row"><code>scripts/new-builder.mjs</code></th>
+                <td>789</td><td><code>4b7b3f8</code> + <code>8a7ef11</code> + <code>32a05ee</code></td>
+                <td>Spec XML → aba pronta. Modo <code>--into</code> injeta num documento existente,
+                  modo padrão imprime os blocos no stdout.</td>
+              </tr>
+              <tr>
+                <th scope="row"><code>test/</code> (12 arquivos)</th>
+                <td>3279</td><td><code>ecf66df</code> + <code>d794a5c</code></td>
+                <td>333 testes em <code>node:test</code>. Os helpers carregam os arquivos
+                  <strong>reais</strong> — cópia envelheceria em silêncio.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="h5 mt-4"><code>assets/template.html</code> — +5 linhas, e só</h3>
+
+        <p>O runtime que a skill manda "copiar inteiro e não editar" recebeu duas linhas de código e
+          três de comentário. É o diff mais importante da rodada, porque toca o arquivo mais
+          protegido:</p>
+
+<pre><code class="language-diff">   var sources = new WeakMap();
+   document.querySelectorAll('pre &gt; code').forEach(function (code) {
++    if (code.closest('[data-live]')) return;   // texto muda em runtime: leia na hora do clique
+     sources.set(code, code.textContent.replace(/\n$/, ''));
+   });
+@@
+     pre.appendChild(btn);
+   });
+
++  // Exposto para quem estende o documento (ex.: o construtor de prompt) reusar o mesmo
++  // caminho de cópia — antes do return abaixo, senão documento sem aba ficaria sem o gancho.
++  window.__explainerCopy = copyText;
++
+   // 3. Aba ↔ URL. Sem isto, mandar "olha a aba Armadilhas" exige explicar o clique.
+   var tabs = document.querySelectorAll('[data-bs-toggle="tab"]');
+   if (!tabs.length) return;</code></pre>
+
+        <p>Repare no <code>if (!tabs.length) return;</code> logo abaixo: é por isso que o gancho foi
+          posto <strong>antes</strong> dele. Um documento sem abas sairia sem
+          <code>__explainerCopy</code>, e o construtor injetado depois cairia no fallback próprio sem
+          avisar ninguém. As mesmas cinco linhas foram para <code>assets/example.html</code> em
+          <code>0730768</code>.</p>
+
+        <h3 class="h5 mt-4"><code>scripts/check-doc.mjs</code> — 335 → 869 linhas</h3>
+
+        <p>O linter cresceu em três etapas, e cada uma tem um motivo diferente.</p>
+
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead>
+              <tr><th scope="col">Commit</th><th scope="col">Antes</th><th scope="col">Depois</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row"><code>8fcb23e</code></th>
+                <td>Não sabia o que é um construtor. Documento com spec quebrada saía com selo verde.</td>
+                <td>+335 linhas: <code>promptBuilder()</code> e <code>attrsOf()</code>, um parser de
+                  atributos próprio que lê aspas simples <em>e</em> duplas.</td>
+              </tr>
+              <tr>
+                <th scope="row"><code>39fccae</code></th>
+                <td>Seis buracos por onde passava documento quebrado (aba <em>O que quase passou</em>).</td>
+                <td>+188 linhas: as seis checagens, e a varredura linear que impede comentário XML de
+                  virar pergunta fantasma.</td>
+              </tr>
+              <tr>
+                <th scope="row"><code>32a05ee</code>+<code>8709edd</code></th>
+                <td><code>process.exit()</code> no fim.</td>
+                <td><code>process.exitCode</code>, para o stdout drenar antes de o processo morrer.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>Por que o parser de atributos próprio, em vez de <code>[^&gt;]*</code>? Porque XML 1.0 só
+          proíbe <code>&lt;</code> e <code>&amp;</code> crus em valor de atributo — o
+          <code>&gt;</code> é legal, e o <code>DOMParser</code> aceita:</p>
+
+<pre><code class="language-js">const ATTRS_SRC = '((?:"[^"]*"|\'[^\']*\'|[^&gt;"\'])*)';</code></pre>
+
+        <p>Com <code>[^&gt;]*</code>, uma pergunta rotulada <code>label="custo &gt; 0"</code> teria a
+          tag cortada ao meio e apareceria como "pergunta sem label" — erro inventado num documento
+          correto. As três alternativas começam em caracteres disjuntos, então não há backtracking a
+          explorar.</p>
+
+        <h3 class="h5 mt-4"><code>scripts/new-doc.mjs</code> — a flag, e o corpo numa função</h3>
+
+        <p>Ganhou <code>--builder</code>, <code>--spec</code> e <code>--tab-label</code> em
+          <code>4b7b3f8</code>. A injeção acontece <strong>antes</strong> do
+          <code>writeFileSync</code>, de propósito: spec inválida sai como erro e nenhum arquivo é
+          escrito.</p>
+
+<pre><code class="language-js">if (argv.includes('--builder') || specFile) {
+  const xml = specFile ? readFileSync(specFile, 'utf8') : defaultSpecXml();
+  const blocks = buildBlocks(xml, { tabLabel: flag('tab-label') });
+  html = injectInto(html, blocks);       // se estourar, o writeFileSync abaixo não roda
+}
+writeFileSync(out, html);</code></pre>
+
+        <p>Sem <code>--spec</code> ele usa a spec de planejamento padrão. Exigir um XML escrito do
+          zero devolveria exatamente o atrito que a feature existe para remover.</p>
+
+        <h3 class="h5 mt-4"><code>SKILL.md</code>, <code>README.md</code>, <code>package.json</code></h3>
+
+        <ul>
+          <li><strong><code>SKILL.md</code></strong> (<code>cfcf8e3</code>): gatilho no
+            <code>description</code>, um passo condicional — não um sexto passo —, os dois ganchos
+            documentados na seção do runtime, e o item de checklist do construtor.
+            <code>version</code> foi a <code>1.1.0</code>.</li>
+          <li><strong><code>README.md</code></strong> (<code>0730768</code>, <code>32a05ee</code>):
+            uma seção para o construtor, e a separação entre "rodar os scripts" (Node 18) e "rodar a
+            suíte" (Node 18.20.8).</li>
+          <li><strong><code>package.json</code></strong>: <code>version</code> alinhada em
+            <code>1.1.0</code>, <code>engines</code> em <code>&gt;=18.20.8</code>, e um
+            <code>pretest</code> que aborta abaixo disso com mensagem explícita.</li>
+        </ul>
+
+        <h3 class="h5 mt-4">Como este arquivo foi feito, e como você confere</h3>
+
+        <p>O EXPLAINER foi gerado pela própria skill, com uma spec escrita para ele:</p>
+
+<pre><code class="language-bash">node html-explainer/scripts/new-doc.mjs \
+  "O construtor de prompt: o que esta rodada mudou na skill" ./EXPLAINER.html \
+  --tabs "O que mudou,Como funciona,De-para,O que quase passou,Dívida" \
+  --sub "html-explainer v1.1.0 · 13 commits · ago/2026" \
+  --builder --spec ./spec.xml --tab-label "Construtor"</code></pre>
+
+        <p>E a prova de que o prompt escrito no HTML é o mesmo que o JavaScript monta extrai a spec
+          <strong>e</strong> o runtime deste arquivo, executa o runtime no Node e compara os buffers:</p>
+
+<pre><code class="language-js">new Function(runtimeDoArquivo)();                    // instala globalThis.__promptBuilder
+const PB = globalThis.__promptBuilder;
+const model = PB.model(parseXml(specDoArquivo));
+const montado = PB.build(model, PB.defaults(model));
+Buffer.from(noArquivo).equals(Buffer.from(montado)); // → true</code></pre>
+
+        <p>Saída medida neste arquivo: <strong>2497 bytes dos dois lados, 53 linhas, idêntico</strong>.
+          Se um dia divergir, o PDF e o leitor sem JavaScript passam a receber outro prompt — e é
+          exatamente esse o desastre silencioso que a checagem existe para pegar.</p>
+      </div>
+
+    <div class="tab-pane fade" id="pane-o-que-quase-passou" role="tabpanel"
+           aria-labelledby="tab-o-que-quase-passou" tabindex="0" data-print-title="O que quase passou">
+        <h2 class="h4">O que quase passou</h2>
+
+        <p><strong>Onze defeitos chegaram até a revisão adversarial, e todos passavam no teste
+          feliz.</strong> Dez estão aqui; o décimo primeiro — o aviso do <code>hljs</code> em toda
+          carga — está em <em>Como funciona</em>, porque a correção dele virou arquitetura.
+          Nenhum deles quebra na tela. Cada um entrega o resultado errado, ou nenhum
+          resultado, com cara de sucesso — e é por isso que esta é a aba que vale a leitura.</p>
+
+        <div class="alert alert-warning d-flex gap-2" role="alert">
+          <i class="bi bi-exclamation-triangle-fill flex-shrink-0"></i>
+          <div>O padrão que aparece em nove dos onze: <strong>a coisa funciona, só que errado, e o
+            código de saída é 0.</strong> Teste que só verifica "passou?" não pega nenhum deles.</div>
+        </div>
+
+        <h3 class="h5 mt-4">O linter aprovava o formulário que abria na opção errada</h3>
+
+        <p>O runtime compara <code>getAttribute('default') === 'true'</code> — com a
+          <strong>string</strong>. O linter aceitava o atributo pelado.</p>
+
+<pre><code class="language-xml">&lt;option value="a" label="Primeira"/&gt;
+&lt;option value="b" label="Segunda" default/&gt;   &lt;!-- passava limpo... --&gt;</code></pre>
+
+        <p>A spec passava, o documento abria — <strong>na primeira opção</strong>. O formulário
+          parecia funcionar; o padrão do documento é que era outro. Correção: <code>default</code>
+          com qualquer valor que não seja <code>"true"</code> ou <code>"false"</code> é erro.</p>
+
+        <p>E o teste que a correção pediu revelou um segundo defeito na mesma família: a busca pela
+          palavra <em>default</em> varria a tag inteira, então um <code>label</code> como
+          <code>"Padrão do projeto"</code> — ou qualquer rótulo com a palavra "default" — contava como
+          default. Falso positivo <strong>e</strong> falso negativo na mesma linha: uma opção
+          ganhava default que não tinha, e o <code>radio</code> que realmente estava sem default
+          passava por ter dois.</p>
+
+        <h3 class="h5 mt-4">Casca com aspas simples se tornava invisível</h3>
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="small text-danger mb-1"><i class="bi bi-x-lg"></i> Invisível</div>
+<pre><code class="language-html">&lt;div class='prompt-builder' id='pb-x'&gt;</code></pre>
+            <p class="small text-body-secondary mb-0">O linter não enxergava a casca. Sem casca, toda
+              checagem que depende dela deixa de rodar — e o silêncio parece aprovação.</p>
+          </div>
+          <div class="col-md-6">
+            <div class="small text-success mb-1"><i class="bi bi-check-lg"></i> Depois</div>
+<pre><code class="language-js">const re = /([A-Za-z_:][\w:.-]*)(?:\s*=\s*
+  (?:"([^"]*)"|'([^']*)'|([^\s"'=&lt;&gt;`]+)))?/g;</code></pre>
+            <p class="small text-body-secondary mb-0">O <code>attrsOf()</code> lê as duas aspas e
+              também o valor sem aspas, como o parser do navegador.</p>
+          </div>
+        </div>
+
+        <p class="mt-3">Vizinho do mesmo bug, e mais sutil: a peneira de classe casava por
+          <em>substring</em>. Um <code>class="prompt-builder-legend"</code> — um auxiliar decorativo —
+          virava uma casca inteira e colhia os erros de um construtor que ele não era. A causa é o
+          <code>\b</code> do regex, que trata o <code>-</code> como fronteira de palavra. A correção
+          casa por <strong>token</strong> da lista de classes, que é o que o
+          <code>querySelectorAll('.prompt-builder')</code> faz:</p>
+
+<pre><code class="language-js">const cls = a.get('class');
+if (!cls || !cls.split(/\s+/).includes('prompt-builder')) continue;</code></pre>
+
+        <h3 class="h5 mt-4">Comentar a spec reprovava a spec</h3>
+
+        <p>Comentar uma spec XML é justamente escrever <em>"escolha a <code>&lt;question&gt;</code> e a
+          <code>&lt;option&gt;</code> certas"</em>. Sem apagar o comentário antes de contar as tags,
+          essa frase virava uma <strong>pergunta fantasma</strong> — sem <code>id</code> e sem
+          <code>type</code> — e reprovava um documento perfeito.</p>
+
+        <p>A correção recusou a solução óbvia. Dois <code>replace</code> em sequência têm caso-veneno
+          nas <strong>duas</strong> ordens:</p>
+
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead>
+              <tr><th scope="col">Entrada</th><th scope="col">O que é, de verdade</th><th scope="col">Quem erra</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>&lt;!-- ]]&gt; --&gt;</code></td>
+                <td>Um comentário inteiro; o <code>]]&gt;</code> de dentro é texto.</td>
+                <td>Quem apaga CDATA primeiro.</td>
+              </tr>
+              <tr>
+                <td><code>&lt;![CDATA[ &lt;!-- ]]&gt;</code></td>
+                <td>Um CDATA inteiro; o <code>&lt;!--</code> de dentro é texto.</td>
+                <td>Quem apaga comentário primeiro.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>O que foi feito no lugar é uma varredura linear que imita a regra do próprio XML —
+          comentário e CDATA não se aninham, e <strong>quem abre primeiro manda</strong>:</p>
+
+<pre><code class="language-js">for (;;) {
+  const c = body.indexOf('&lt;!--', i);
+  const d = body.indexOf('&lt;![CDATA[', i);
+  if (c === -1 &amp;&amp; d === -1) break;
+  if (d === -1 || (c !== -1 &amp;&amp; c &lt; d)) { /* comentário */ }
+  else { /* CDATA */ }
+}</code></pre>
+
+        <p>Ela também distingue os dois usos que o linter faz do texto: as tags são contadas com
+          comentário <em>e</em> CDATA em branco; os <code>{{marcadores}}</code> são procurados com o
+          CDATA <strong>intacto</strong>, porque é lá que eles moram. Assim um marcador comentado não
+          vira marcador fantasma e nenhum marcador de verdade some. De brinde, a varredura é
+          O(n) — a lentidão <em>era</em> o defeito.</p>
+
+        <h3 class="h5 mt-4">O <code>description</code> do <code>SKILL.md</code> estourou o teto</h3>
+
+        <p>A especificação de Agent Skills limita o <code>description</code> a <strong>1024
+          caracteres</strong>. A primeira versão com o gatilho do construtor foi a 1275. O original
+          tinha <strong>1001</strong> — 23 de folga, escrito contra um teto que ninguém tinha
+          documentado no repositório.</p>
+
+<pre><code class="language-bash">git show fe98520:html-explainer/SKILL.md   # description: 1001 caracteres
+git show HEAD:html-explainer/SKILL.md      # description: 1016 caracteres</code></pre>
+
+        <p>Voltou a <strong>1016</strong>, cortando 250 caracteres de <em>explicação</em> que não eram
+          gatilho. É a lição mais transferível da rodada: num campo com teto, o que sobrevive é a
+          palavra que faz a skill disparar — o resto pertence ao corpo do arquivo.</p>
+
+        <h3 class="h5 mt-4">O gerador não rodava pelo modo de instalação oficial</h3>
+
+        <p>O <code>install.sh</code> instala a skill como <strong>symlink</strong> do diretório
+          inteiro. O <code>new-builder.mjs</code> tinha a guarda "fui executado ou fui importado?"
+          escrita assim:</p>
+
+<pre><code class="language-js">if (process.argv[1] &amp;&amp; resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {</code></pre>
+
+        <p>O loader ESM do Node <strong>resolve symlink</strong> antes de formar
+          <code>import.meta.url</code>. O <code>resolve()</code> só normaliza <code>.</code> e
+          <code>..</code> — não resolve symlink. Pelo caminho do link os dois lados nunca batiam:</p>
+
+        <div class="alert alert-danger d-flex gap-2" role="alert">
+          <i class="bi bi-x-octagon-fill flex-shrink-0"></i>
+          <div><strong>0 linhas de saída, código de saída 0, nenhuma mensagem.</strong>
+            <code>--example &gt; spec.xml</code> criava um arquivo vazio, e nada no terminal dizia por quê.</div>
+        </div>
+
+        <p>A correção passa <code>realpathSync</code> nos dois lados, com o
+          <code>resolve()</code> antigo como rede de segurança para quando o <code>realpath</code>
+          falhar (arquivo apagado sob os pés, permissão negada num diretório do caminho):</p>
+
+<pre><code class="language-js">function executadoDiretamente() {
+  const argv1 = process.argv[1];
+  if (!argv1) return false;
+  const aqui = fileURLToPath(import.meta.url);
+  const real = (p) =&gt; { try { return realpathSync(p); } catch { return resolve(p); } };
+  return real(argv1) === real(aqui) || resolve(argv1) === aqui;
+}</code></pre>
+
+        <h3 class="h5 mt-4">A suíte protegia o arquivo errado</h3>
+
+        <p>A primeira suíte cobria <code>assets/prompt-builder.html</code> — <strong>um</strong>
+          arquivo, que ninguém entrega — e deixava <code>new-builder.mjs</code> com <strong>0% de
+          cobertura de função</strong>. É ele que gera <em>todo documento futuro</em>.</p>
+
+        <p>A prova disso é um teste de mutação: trocar uma linha dentro do gerador
+          (<code>PB.build(...)</code> pelo <code>model.template</code> cru) não matava nenhum teste,
+          passava no linter, e entregava <code>{{alvo}}</code> literal para quem lê sem JavaScript.</p>
+
+<pre><code class="language-bash">node --test --experimental-test-coverage</code></pre>
+
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead>
+              <tr><th scope="col">Arquivo</th><th scope="col">Linha</th><th scope="col">Ramo</th><th scope="col">Função</th></tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row"><code>new-builder.mjs</code></th><td>99,75%</td><td>93,68%</td><td>100%</td></tr>
+              <tr><th scope="row"><code>check-doc.mjs</code></th><td>99,42%</td><td>92,89%</td><td>100%</td></tr>
+              <tr><th scope="row"><code>escape-code.mjs</code></th><td>100%</td><td>93,75%</td><td>100%</td></tr>
+              <tr><th scope="row"><code>new-doc.mjs</code></th><td>93,46%</td><td>68,57%</td><td>100%</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="h5 mt-4"><code>engines</code> mentia, e o modo de falhar era o pior possível</h3>
+
+        <p><code>"node": "&gt;=18.0.0"</code> era falso, e a medição mostrou três desfechos diferentes:</p>
+
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead><tr><th scope="col">Versão</th><th scope="col">O que acontece</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">18.0.0</th><td>O <code>--test</code> nem existe. Falha alto — o desfecho bom.</td></tr>
+              <tr><th scope="row">18.9.0</th><td><strong>A suíte sai VERDE rodando 4 dos 332 testes.</strong> Parece passar sem ter rodado.</td></tr>
+              <tr><th scope="row">18.13.0</th><td>O <code>«</code> das mensagens do linter estoura o lexer TAP.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>O piso virou <code>&gt;=18.20.8</code> — o menor valor testado que se comporta — com um
+          <code>pretest</code> que aborta abaixo dele dizendo exatamente isso. E o
+          <code>engines</code> passou a ser o piso da <strong>suíte</strong>: os quatro scripts não
+          usam nenhuma API posterior ao Node 18 e rodam em 18 puro. São duas exigências diferentes, e
+          o README agora as separa.</p>
+
+        <h3 class="h5 mt-4"><code>process.exit()</code> descartava a saída no cano</h3>
+
+        <p>Quando o stdout é um <strong>cano</strong> — <code>| pbcopy</code>, <code>| less</code>, CI,
+          outro agente com <code>spawn</code> — a escrita do Node é <strong>assíncrona</strong>. O que
+          não coube no buffer fica numa fila interna, e <code>process.exit()</code> derruba o processo
+          jogando essa fila fora. Para <em>arquivo</em> a escrita é síncrona, e é por isso que o
+          <code>&gt; saida.html</code> do README nunca truncou — o que fazia o bug parecer inofensivo.</p>
+
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead><tr><th scope="col">Script</th><th scope="col">Entregue no cano</th><th scope="col">Código de saída</th></tr></thead>
+            <tbody>
+              <tr><th scope="row"><code>escape-code.mjs --raw</code></th><td>8192 de 837 780 bytes (1%)</td><td><span class="badge text-bg-danger">0</span></td></tr>
+              <tr><th scope="row"><code>new-builder.mjs</code> (blocos)</th><td>8021 de 27 502 bytes</td><td><span class="badge text-bg-danger">0</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>A correção é a mesma nos quatro scripts: o corpo vive numa função, cada saída antecipada é
+          um <code>return</code> com o código, e o topo do arquivo faz
+          <code>process.exitCode = main()</code>. O Node termina sozinho, depois de drenar tudo, com o
+          <strong>mesmo</strong> código. Um único critério nos quatro é o que impede que a próxima
+          linha nova erre de novo.</p>
+
+        <p class="text-body-secondary small">Efeito colateral útil: o
+          <code>escape-code.mjs</code> passou a poder ser usado com <code>|</code> sem perder
+          conteúdo, que é como um agente costuma chamá-lo.</p>
+      </div>
+
+    <div class="tab-pane fade" id="pane-divida" role="tabpanel"
+           aria-labelledby="tab-divida" tabindex="0" data-print-title="Dívida">
+        <h2 class="h4">Dívida</h2>
+
+        <p><strong>Três defeitos ficaram no repositório de propósito, com teste que os denuncia.</strong>
+          Todos são anteriores ao construtor e nenhum tem relação com ele. Consertar defeito
+          pré-existente no meio de uma feature é como se entrelaçam dois diffs que ninguém mais
+          consegue revisar.</p>
+
+        <p>Eles não estão num arquivo de anotações: estão na suíte, marcados como
+          <code>todo</code>. Um <code>todo</code> não derruba <code>node --test</code> e não some da
+          vista — no dia em que a correção chegar, o teste vira verde sozinho e o marcador sai.</p>
+
+<pre><code class="language-bash">node --test
+# tests 333
+# pass 330
+# fail 0
+# todo 3</code></pre>
+
+        <h3 class="h5 mt-4">1 e 2. Aspas simples são invisíveis para o linter antigo</h3>
+
+        <p>Os regexes de <code>structure</code>, <code>externals</code> e <code>codeBlocks</code> só
+          leem valor entre aspas <strong>duplas</strong>. O <code>attrsOf()</code> que a Onda 1
+          escreveu para o construtor já lê as duas — a dívida é o código velho não usá-lo:</p>
+
+<pre><code class="language-js">// check-doc.mjs:191 — ids duplicados
+for (const m of masked.matchAll(/\bid\s*=\s*"([^"]+)"/g)) {</code></pre>
+
+        <p>Três sintomas, um por teste <code>todo</code>:</p>
+
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead>
+              <tr><th scope="col">Entrada</th><th scope="col">Devia ser</th><th scope="col">É</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>&lt;div id='x'&gt;&lt;/div&gt;&lt;div id='x'&gt;&lt;/div&gt;</code></td>
+                <td>erro: <em>id duplicado</em></td>
+                <td>passa limpo</td>
+              </tr>
+              <tr>
+                <td><code>&lt;img src='grafico.png'&gt;</code></td>
+                <td>erro: <em>aponta para arquivo ao lado</em></td>
+                <td>passa limpo — e a regra "um arquivo, sempre" é a primeira da skill</td>
+              </tr>
+              <tr>
+                <td><code>&lt;pre title="a &gt; b"&gt;</code></td>
+                <td>erro: <em>bloco sem <code>class="language-XXX"</code></em></td>
+                <td>o bloco inteiro some da análise</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>O terceiro é o mesmo <code>[^&gt;]*</code> que o parser novo já resolveu do lado do
+          construtor: um <code>&gt;</code> dentro do valor de um atributo corta a tag ao meio.</p>
+
+        <h3 class="h5 mt-4">3. <code>mask()</code> e <code>maskCode()</code> são quadráticos</h3>
+
+        <p>Os dois usam <code>replace</code> com corpo preguiçoso. Cada abertura de
+          <code>&lt;pre</code> relança a varredura, então um documento com muitas aberturas custa
+          O(n²):</p>
+
+<pre><code class="language-js">.replace(/(&lt;pre\b[^&gt;]*&gt;)([\s\S]*?)(&lt;\/pre&gt;)/gi, blank)
+.replace(/(&lt;code\b[^&gt;]*&gt;)([\s\S]*?)(&lt;\/code&gt;)/gi, blank)</code></pre>
+
+        <p>A correção já existe no mesmo arquivo, escrita para outra função: o
+          <code>preRanges()</code> varre à mão, e o comentário dele diz por quê. É a receita para
+          quando o conserto chegar:</p>
+
+<pre><code class="language-js">/**
+ * Faixas [index, end) de cada &lt;pre&gt;…&lt;/pre&gt;, com a marca de `data-live`. Varrido à mão:
+ * o regex equivalente (`&lt;pre…&gt;[\s\S]*?&lt;/pre&gt;`) tenta o corpo a partir de CADA `&lt;pre`
+ * e fica quadrático num documento com muitos `&lt;pre` sem fechar.
+ */</code></pre>
+
+        <p>Na prática ninguém vai notar: o maior documento da skill tem 60 954 bytes e o linter
+          termina em fração de segundo. A dívida importa porque a classe do problema é conhecida e a
+          correção já está escrita ao lado.</p>
+
+        <h3 class="h5 mt-4">Um <code>process.exit(1)</code> que sobrou</h3>
+
+        <p>Não é <code>todo</code> — é uma nota. O <code>pretest</code> do <code>package.json</code>
+          termina em <code>process.exit(1)</code>, a mesma classe de defeito que a Onda 4 corrigiu nos
+          quatro scripts. Aqui a mensagem tem cerca de 400 bytes e cabe folgada no buffer do cano,
+          então ela nunca é truncada.</p>
+
+        <div class="alert alert-primary d-flex gap-2">
+          <i class="bi bi-info-circle-fill flex-shrink-0"></i>
+          <div>Ficou registrado mesmo sendo inofensivo porque a regra que a rodada adotou é <em>um
+            critério único nos quatro scripts</em>. Uma exceção não documentada é a semente da
+            próxima linha nova que erra de novo.</div>
+        </div>
+
+        <h3 class="h5 mt-4">O que <em>não</em> ficou como dívida</h3>
+
+        <p>Vale dizer o que foi verificado e está fechado, para ninguém reabrir procurando:</p>
+
+        <ul>
+          <li><strong>Zero dependência.</strong> Sem <code>node_modules</code>, sem lockfile, sem
+            <code>npm install</code> em nenhum passo. A suíte inteira é <code>node:test</code>.</li>
+          <li><strong>Chromium de verdade.</strong> O construtor foi verificado num Chromium real
+            (Brave 151 headless), por <code>file://</code> <strong>e</strong> por <code>http://</code>
+            — os dois, porque metade das armadilhas só aparece num deles.</li>
+          <li><strong>Cobertura dos geradores.</strong> <code>new-builder.mjs</code> e
+            <code>check-doc.mjs</code> em 100% de função. É o que fecha o buraco que a revisão achou.</li>
+          <li><strong>O documento que você está lendo.</strong> Gerado pela skill, 0 erros e 0 avisos
+            no próprio linter, com a identidade byte a byte do prompt provada por script.</li>
+        </ul>
+      </div>
+
+<!-- pb:pane:begin pb-proxima -->
+    <div class="tab-pane fade" id="pane-pb-proxima" role="tabpanel"
+         aria-labelledby="tab-pb-proxima" tabindex="0" data-print-title="Construtor">
+      <h2 class="h4">Monte o prompt da próxima rodada</h2>
+      <p class="mb-4">
+        Responda à esquerda; o prompt à direita é remontado a cada clique e fica pronto para colar
+        no agente. As respostas ficam salvas neste navegador — voltar ao arquivo devolve a última
+        combinação. <strong>Restaurar padrões</strong> volta ao estado de fábrica.
+      </p>
+
+<!-- pb:spec:begin -->
+<!-- A especificação do construtor. type="application/xml" é o ponto: o navegador não executa
+     este bloco nem lê o conteúdo como HTML — ele fica texto cru até o fechamento do script, e
+     é o DOMParser do runtime que o interpreta. A única sequência proibida aqui dentro é o
+     fechamento literal de script; por isso todo fragmento vive em CDATA. -->
+<script type="application/xml" id="pb-spec-proxima">
+<prompt-builder id="proxima" lang="xml" title="Monte o prompt da próxima rodada">
+
+  <!-- text: só quem leu este documento sabe o que quer. O default é a dívida mais
+       barata de fechar, para o bloco pré-preenchido nunca sair vazio no PDF. -->
+  <question id="alvo" type="text"
+            label="O alvo, em uma linha"
+            help="Verbo no infinitivo e alvo concreto. É a primeira linha que o agente lê."
+            placeholder="ex.: fazer attr() e os regexes antigos lerem valor entre aspas simples"
+            default="Fazer attr() e os regexes antigos do check-doc.mjs lerem valor entre aspas simples"/>
+
+  <!-- textarea: o contexto que não está no repositório. Entra CRU no XML: peça prosa,
+       nunca markup, porque um sinal de menor-que digitado aqui quebra o prompt. -->
+  <question id="contexto" type="textarea"
+            label="Contexto que o agente não consegue ler no repositório"
+            help="Uma afirmação por linha. Prosa, sem sinais de menor-que nem e-comercial."
+            placeholder="uma afirmação por linha"
+            default="Node 22 na máquina; a suíte exige 18.20.8 ou mais.
+Zero dependência é regra do repositório: node:test puro, sem node_modules."/>
+
+  <!-- radio: as três se excluem e cada uma troca o pedido inteiro, não só o tamanho.
+       Exatamente uma default="true" — sem ela o runtime cai na primeira do XML e o
+       padrão do documento passa a ser a ordem em que alguém digitou. -->
+  <question id="frente" type="radio"
+            label="Qual frente atacar"
+            help="Uma por rodada. Duas frentes na mesma rodada produzem dois diffs entrelaçados.">
+    <option value="dividas" label="Fechar as dívidas registradas" default="true"><![CDATA[<front id="dividas">
+  Feche as dívidas que a rodada anterior registrou de propósito, e só elas. Elas estão marcadas
+  como `todo` na suíte (test/linter-documento.test.mjs) e comentadas no fonte: aspas simples
+  invisíveis para attr() e para os regexes de structure/externals/codeBlocks, mask() e maskCode()
+  quadráticos, e o process.exit(1) do pretest no package.json.
+  Cada `todo` que virar verde é uma dívida fechada — tire o marcador `todo` no mesmo commit.
+</front>]]></option>
+    <option value="construtor" label="Estender o construtor de prompt"><![CDATA[<front id="construtor">
+  Estenda o construtor de prompt sem quebrar o CONTRATO NORMATIVO v1 de
+  html-explainer/references/prompt-builder.md. Antes de escrever a primeira linha, diga qual
+  seção do contrato a mudança toca e o que acontece com os documentos já gerados.
+  Contrato mudado é assets/prompt-builder.html, scripts/new-builder.mjs e scripts/check-doc.mjs
+  mudados no MESMO commit — os três implementam o mesmo texto, e divergir é o defeito.
+</front>]]></option>
+    <option value="portar" label="Portar a técnica para outro repositório"><![CDATA[<front id="portar">
+  Porte a técnica para o repositório alvo, sem copiar arquivo. O que se leva é o método, e ele
+  é: a fonte declarativa vive inerte dentro do artefato, o runtime GERA os pares id/for/aria em
+  vez de alguém escrevê-los à mão, e o linter valida a FONTE — não o DOM, que só existe no
+  navegador. Diga primeiro o que, no repositório alvo, faz o papel de cada um dos três.
+</front>]]></option>
+  </question>
+
+  <!-- checkbox: aditivas, nenhuma briga com nenhuma. join="blank-line" porque cada
+       fragmento tem várias linhas e, colados, eles virariam um parágrafo só.
+       Zero marcadas é estado válido: a linha do marcador some inteira. -->
+  <question id="exigencias" type="checkbox" join="blank-line"
+            label="O que exigir do agente"
+            help="Cada marcada vira uma exigência que ele cumpre antes de dizer que terminou.">
+    <option value="medido" label="Todo número medido, nunca presumido" default="true"><![CDATA[<demand id="medido">
+  Todo número do relatório é MEDIDO no repositório, com o comando à vista. Número que você não
+  conseguiu reproduzir sai do relatório — não vira estimativa. "Verificado, não presumido" é a
+  regra da casa, e o relatório de entrega é justamente onde ela costuma se perder.
+</demand>]]></option>
+    <option value="adversarial" label="Revisão adversarial antes de entregar" default="true"><![CDATA[<demand id="adversarial">
+  Antes de entregar, ataque o próprio trabalho: qual entrada faz esta mudança falhar em silêncio?
+  A rodada anterior achou assim os defeitos que mais custariam — o default aceito pelado, que
+  abria a opção errada; a casca com aspas simples, que desligava onze checagens sem avisar; o
+  script que saía com código 0 sem ter feito nada. Todos passavam no teste feliz.
+</demand>]]></option>
+    <option value="regressao" label="Um teste que falha antes do conserto" default="true"><![CDATA[<demand id="regressao">
+  Cada correção nasce com um teste em node:test que FALHA antes dela e passa depois. Rode a suíte
+  inteira antes e depois, e cole as duas contagens. Zero dependência nova: nada de node_modules,
+  nada de lockfile.
+</demand>]]></option>
+    <option value="cobertura" label="Cobrir o que gera todo documento futuro"><![CDATA[<demand id="cobertura">
+  Meça a cobertura com node --test --experimental-test-coverage e olhe primeiro os GERADORES, não
+  os arquivos gerados. A rodada anterior tinha o arquivo de referência protegido e o
+  new-builder.mjs com 0% de cobertura de função — e é ele que produz todo documento futuro.
+</demand>]]></option>
+    <option value="navegador" label="Abrir no navegador de verdade"><![CDATA[<demand id="navegador">
+  Se a mudança toca o documento entregue, abra o arquivo num Chromium de verdade, por file:// E
+  por http://, e leia o console. Metade das armadilhas desta skill — o aviso do highlight.js, o
+  clipboard que não existe fora de contexto seguro, o localStorage que estoura em aba anônima —
+  só aparece num dos dois.
+</demand>]]></option>
+  </question>
+
+  <!-- radio: o entregável. Trocar a resposta troca o que o agente PODE escrever, não o
+       quanto ele escreve — por isso é pergunta, e não uma linha do texto fixo. -->
+  <question id="entrega" type="radio"
+            label="O que você quer de volta"
+            help="Decida antes: pedir plano e receber diff é o desperdício mais caro que existe.">
+    <option value="plano" label="Só o plano, sem tocar em arquivo"><![CDATA[<deliverable kind="plano">
+  Não escreva código de produção nesta rodada. O entregável é o plano: as etapas na ordem de
+  execução, os arquivos que cada uma toca, e o risco que cada uma carrega.
+</deliverable>]]></option>
+    <option value="patch" label="O diff, com a suíte verde" default="true"><![CDATA[<deliverable kind="patch">
+  O entregável é o diff, com node --test em zero falhas e o check-doc.mjs em zero erros nos
+  documentos do repositório. Um commit por assunto, com a mensagem dizendo o SINTOMA que a
+  mudança remove, não o arquivo que ela edita.
+</deliverable>]]></option>
+  </question>
+
+  <!-- O que NÃO virou pergunta: o protocolo de verificação. A resposta é sempre a mesma,
+       então ele é texto fixo do esqueleto. Cada marcador está sozinho na linha — é essa
+       posição que liga a indentação automática e a regra da linha vazia. -->
+  <template><![CDATA[
+    <task type="continuation" repo="html-explainer-skill">
+
+      <objective>
+        {{alvo}}
+      </objective>
+
+      <context>
+        {{contexto}}
+      </context>
+
+      {{frente}}
+
+      <demands>
+        {{exigencias}}
+      </demands>
+
+      {{entrega}}
+
+      <protocol>
+        <step n="1">Leia html-explainer/SKILL.md e a referência que o caso pede ANTES de editar.</step>
+        <step n="2">Rode node --test primeiro, para saber de onde você partiu.</step>
+        <step n="3">Marque, em voz alta, tudo que você NÃO verificou.</step>
+      </protocol>
+
+    </task>
+  ]]></template>
+
+</prompt-builder>
+</script>
+<!-- pb:spec:end -->
+
+<!-- pb:shell:begin -->
+      <div class="row g-4 prompt-builder" id="pb-proxima" data-pb-spec="pb-spec-proxima">
+
+        <div class="col-lg-5">
+          <div data-pb-form>
+            <noscript>
+              <div class="alert alert-warning d-flex gap-2 mb-0" role="alert">
+                <i class="bi bi-exclamation-triangle-fill flex-shrink-0"></i>
+                <div>Sem JavaScript as perguntas não são montadas — mas o prompt ao lado já está
+                     inteiro, na combinação padrão, e pode ser copiado à mão.</div>
+              </div>
+            </noscript>
+          </div>
+        </div>
+
+        <div class="col-lg-7">
+          <div class="position-sticky" style="top: 5rem">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+              <div class="btn-group" role="group" aria-label="Ações do prompt">
+                <button type="button" class="btn btn-primary" data-pb-copy>
+                  <i class="bi bi-clipboard me-1"></i>Copiar prompt
+                </button>
+                <button type="button" class="btn btn-outline-secondary" data-pb-reset>
+                  <i class="bi bi-arrow-counterclockwise me-1"></i>Restaurar padrões
+                </button>
+              </div>
+              <!-- A frase curta vive aqui, nunca no bloco de código: leitor de tela releria o
+                   prompt inteiro a cada clique se o aria-live estivesse no <pre>. -->
+              <span class="small text-body-secondary ms-auto font-monospace"
+                    data-pb-status aria-live="polite">prompt padrão · 53 linhas</span>
+            </div>
+<!-- data-live diz ao runtime do template para NÃO cachear o texto deste bloco: ele muda a
+     cada clique, e o cache tirado no load faria o botãozinho de hover copiar o prompt inicial
+     para sempre. O conteúdo nasce preenchido (escapado) para impressão, PDF e "sem JS". -->
+<pre data-live style="max-height: 30rem; overflow: auto"><code class="language-xml" data-pb-output>&lt;task type="continuation" repo="html-explainer-skill"&gt;
+
+  &lt;objective&gt;
+    Fazer attr() e os regexes antigos do check-doc.mjs lerem valor entre aspas simples
+  &lt;/objective&gt;
+
+  &lt;context&gt;
+    Node 22 na máquina; a suíte exige 18.20.8 ou mais.
+    Zero dependência é regra do repositório: node:test puro, sem node_modules.
+  &lt;/context&gt;
+
+  &lt;front id="dividas"&gt;
+    Feche as dívidas que a rodada anterior registrou de propósito, e só elas. Elas estão marcadas
+    como `todo` na suíte (test/linter-documento.test.mjs) e comentadas no fonte: aspas simples
+    invisíveis para attr() e para os regexes de structure/externals/codeBlocks, mask() e maskCode()
+    quadráticos, e o process.exit(1) do pretest no package.json.
+    Cada `todo` que virar verde é uma dívida fechada — tire o marcador `todo` no mesmo commit.
+  &lt;/front&gt;
+
+  &lt;demands&gt;
+    &lt;demand id="medido"&gt;
+      Todo número do relatório é MEDIDO no repositório, com o comando à vista. Número que você não
+      conseguiu reproduzir sai do relatório — não vira estimativa. "Verificado, não presumido" é a
+      regra da casa, e o relatório de entrega é justamente onde ela costuma se perder.
+    &lt;/demand&gt;
+
+    &lt;demand id="adversarial"&gt;
+      Antes de entregar, ataque o próprio trabalho: qual entrada faz esta mudança falhar em silêncio?
+      A rodada anterior achou assim os defeitos que mais custariam — o default aceito pelado, que
+      abria a opção errada; a casca com aspas simples, que desligava onze checagens sem avisar; o
+      script que saía com código 0 sem ter feito nada. Todos passavam no teste feliz.
+    &lt;/demand&gt;
+
+    &lt;demand id="regressao"&gt;
+      Cada correção nasce com um teste em node:test que FALHA antes dela e passa depois. Rode a suíte
+      inteira antes e depois, e cole as duas contagens. Zero dependência nova: nada de node_modules,
+      nada de lockfile.
+    &lt;/demand&gt;
+  &lt;/demands&gt;
+
+  &lt;deliverable kind="patch"&gt;
+    O entregável é o diff, com node --test em zero falhas e o check-doc.mjs em zero erros nos
+    documentos do repositório. Um commit por assunto, com a mensagem dizendo o SINTOMA que a
+    mudança remove, não o arquivo que ela edita.
+  &lt;/deliverable&gt;
+
+  &lt;protocol&gt;
+    &lt;step n="1"&gt;Leia html-explainer/SKILL.md e a referência que o caso pede ANTES de editar.&lt;/step&gt;
+    &lt;step n="2"&gt;Rode node --test primeiro, para saber de onde você partiu.&lt;/step&gt;
+    &lt;step n="3"&gt;Marque, em voz alta, tudo que você NÃO verificou.&lt;/step&gt;
+  &lt;/protocol&gt;
+
+&lt;/task&gt;</code></pre>
+          </div>
+        </div>
+
+      </div>
+<!-- pb:shell:end -->
+    </div>
+<!-- pb:pane:end pb-proxima -->
+  </div>
+
+  <footer class="text-body-secondary small border-top mt-5 pt-3">
+    Gerado pela skill <strong>html-explainer 1.1.0</strong> em 5 de agosto de 2026, contra os 13
+    commits de <code>fe98520..8709edd</code>. Todo número aqui foi medido no repositório.
+    Documento de arquivo único — salve, mande por anexo, abra offline.
+  </footer>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
+        crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"
+        integrity="sha384-RH2xi4eIQ/gjtbs9fUXM68sLSi99C7ZWBRX1vDrVv6GQXRibxXLbwO2NGZB74MbU"
+        crossorigin="anonymous"></script>
+
+<script>
+/* ── runtime do documento ────────────────────────────────────────────────────
+   Copie este bloco inteiro, sem editar. Ele faz três coisas:
+   1. guarda o código-fonte cru ANTES de qualquer transformação (para o copiar);
+   2. destaca a sintaxe e injeta o botão de copiar;
+   3. liga as abas ao #hash da URL, nos dois sentidos.
+   ────────────────────────────────────────────────────────────────────────── */
+(function () {
+  'use strict';
+
+  // 1. Fonte cru primeiro. Depois do highlight o DOM ganha <span>; textContent ainda
+  //    devolve o texto certo, mas plugins de numeração de linha o contaminam. Guardar
+  //    antes é a única versão que nunca mente.
+  var sources = new WeakMap();
+  document.querySelectorAll('pre > code').forEach(function (code) {
+    if (code.closest('[data-live]')) return;   // texto muda em runtime: leia na hora do clique
+    sources.set(code, code.textContent.replace(/\n$/, ''));
+  });
+
+  // 2. Highlight. Declare sempre a linguagem na classe: a auto-detecção erra em
+  //    trechos curtos (o mesmo snippet vira "ruby" numa aba e "perl" na outra).
+  if (window.hljs) hljs.highlightAll();
+
+  // Copiar. navigator.clipboard exige contexto seguro; em file:// o comportamento
+  // varia por navegador, então o fallback com execCommand não é opcional.
+  function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text).then(function () { return true; },
+                                                      function () { return legacyCopy(text); });
+    }
+    return Promise.resolve(legacyCopy(text));
+  }
+
+  function legacyCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    // position:fixed + opacity:0 evita que a página role até o textarea.
+    ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;';
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length); // iOS ignora select() sozinho
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+    return ok;
+  }
+
+  document.querySelectorAll('pre > code').forEach(function (code) {
+    var pre = code.parentElement;
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-sm btn-outline-secondary copy-btn';
+    btn.innerHTML = '<i class="bi bi-clipboard"></i>';
+    btn.setAttribute('aria-label', 'Copiar código');
+    btn.addEventListener('click', function () {
+      copyText(sources.get(code) || code.textContent).then(function (ok) {
+        btn.innerHTML = ok ? '<i class="bi bi-check-lg"></i>' : '<i class="bi bi-x-lg"></i>';
+        btn.classList.toggle('btn-outline-success', ok);
+        btn.classList.toggle('btn-outline-danger', !ok);
+        btn.classList.remove('btn-outline-secondary');
+        setTimeout(function () {
+          btn.innerHTML = '<i class="bi bi-clipboard"></i>';
+          btn.className = 'btn btn-sm btn-outline-secondary copy-btn';
+        }, 1500);
+      });
+    });
+    pre.appendChild(btn);
+  });
+
+  // Exposto para quem estende o documento (ex.: o construtor de prompt) reusar o mesmo
+  // caminho de cópia — antes do return abaixo, senão documento sem aba ficaria sem o gancho.
+  window.__explainerCopy = copyText;
+
+  // 3. Aba ↔ URL. Sem isto, mandar "olha a aba Armadilhas" exige explicar o clique.
+  var tabs = document.querySelectorAll('[data-bs-toggle="tab"]');
+  if (!tabs.length) return;
+
+  function activateFromHash() {
+    var hash = window.location.hash;
+    if (!hash || hash.length < 2) return;
+    var target = document.querySelector(hash);
+    if (!target) return;
+    // O #hash pode apontar para o painel OU para um título dentro dele.
+    var pane = target.closest('.tab-pane') || (target.classList.contains('tab-pane') ? target : null);
+    if (!pane) return;
+    var trigger = document.querySelector('[data-bs-target="#' + CSS.escape(pane.id) + '"]');
+    if (trigger) bootstrap.Tab.getOrCreateInstance(trigger).show();
+    // O navegador já tentou rolar até o alvo — e falhou, porque naquele instante o
+    // painel ainda era display:none. Agora que apareceu, role de novo: sem isto a
+    // página abre num scroll intermediário, com as abas escondidas atrás da navbar.
+    var scrollTo = target !== pane ? target : (trigger && trigger.closest('[role="tablist"]')) || pane;
+    requestAnimationFrame(function () { scrollTo.scrollIntoView({ block: 'start' }); });
+  }
+
+  tabs.forEach(function (t) {
+    t.addEventListener('shown.bs.tab', function (e) {
+      var id = (e.target.getAttribute('data-bs-target') || '').slice(1);
+      // replaceState, não location.hash: mudar o hash direto faz a página pular.
+      if (id) history.replaceState(null, '', '#' + id);
+    });
+  });
+
+  window.addEventListener('hashchange', activateFromHash);
+  activateFromHash();
+})();
+</script>
+<!-- pb:runtime:begin -->
+<script>
+/* ── runtime do construtor de prompt ─────────────────────────────────────────
+   Copie este bloco inteiro, DEPOIS do runtime do documento: ele reusa o
+   window.__explainerCopy exposto lá e conta com o hljs já carregado.
+
+   Três camadas, de propósito — a de baixo não toca no DOM e por isso pode ser
+   exercitada fora do navegador (é o que a suíte de verificação faz):
+     pbParse   texto XML          -> elemento raiz (única função que usa DOMParser)
+     pbModel   elemento raiz      -> modelo em objeto puro
+     pbBuild   modelo + respostas -> string do prompt            [PURA]
+   ────────────────────────────────────────────────────────────────────────── */
+(function (global) {
+  'use strict';
+
+  var JOINERS = { 'newline': '\n', 'blank-line': '\n\n', 'comma': ', ', 'space': ' ' };
+
+  // ── camada pura ───────────────────────────────────────────────────────────
+
+  /* Tira as linhas em branco das pontas e a indentação COMUM. Assim o CDATA pode ser
+     indentado dentro da spec sem que essa indentação vaze para o prompt. */
+  function pbDedent(text) {
+    var lines = String(text == null ? '' : text).replace(/\r\n/g, '\n').split('\n');
+    while (lines.length && !lines[0].trim()) lines.shift();
+    while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+    var cut = null;
+    lines.forEach(function (l) {
+      if (!l.trim()) return;                       // linha vazia não conta na medição
+      var n = l.match(/^[ \t]*/)[0].length;
+      if (cut === null || n < cut) cut = n;
+    });
+    if (!cut) return lines.join('\n');
+    return lines.map(function (l) { return l.trim() ? l.slice(cut) : ''; }).join('\n');
+  }
+
+  /* O que uma pergunta devolve para o marcador dela. Em checkbox a ordem é a da spec,
+     não a do clique: senão o mesmo conjunto de respostas produziria prompts diferentes. */
+  function pbFragment(q, value) {
+    if (q.type === 'radio') {
+      var hit = q.options.filter(function (o) { return o.value === value; })[0];
+      return hit ? hit.fragment : '';
+    }
+    if (q.type === 'checkbox') {
+      var on = Array.isArray(value) ? value : [];
+      return q.options
+        .filter(function (o) { return on.indexOf(o.value) !== -1; })
+        .map(function (o) { return o.fragment; })
+        .join(JOINERS[q.join] || JOINERS.newline);
+    }
+    // text/textarea entram sem escape — o fragmento também é XML e escapar duas vezes
+    // estragaria as tags. Só as pontas são aparadas, para a regra da linha vazia valer.
+    return String(value == null ? '' : value).trim();
+  }
+
+  function pbDefaults(model) {
+    var state = {};
+    model.questions.forEach(function (q) {
+      if (q.type === 'radio') {
+        var pick = q.options.filter(function (o) { return o.checked; })[0] || q.options[0];
+        state[q.id] = pick ? pick.value : '';
+      } else if (q.type === 'checkbox') {
+        state[q.id] = q.options.filter(function (o) { return o.checked; })
+                               .map(function (o) { return o.value; });
+      } else {
+        state[q.id] = q.initial;
+      }
+    });
+    return state;
+  }
+
+  /* Monta o prompt. PURA: nada de DOM aqui dentro. */
+  function pbBuild(model, state) {
+    var value = {};
+    model.questions.forEach(function (q) { value[q.id] = pbFragment(q, state[q.id]); });
+    var has = function (id) { return Object.prototype.hasOwnProperty.call(value, id); };
+
+    var out = [];
+    model.template.split('\n').forEach(function (line) {
+      var solo = line.match(/^([ \t]*)\{\{([A-Za-z][\w-]*)\}\}[ \t]*$/);
+      if (solo && has(solo[2])) {
+        var frag = value[solo[2]];
+        if (frag === '') return;                   // resposta vazia: a linha inteira some
+        frag.split('\n').forEach(function (l) {
+          out.push(l ? solo[1] + l : '');          // indentação do marcador em TODAS as linhas
+        });
+        return;
+      }
+      // Marcador no meio da linha: substituição seca, sem reindentar. Marcador órfão fica
+      // literal de propósito — é assim que o linter enxerga a pergunta renomeada e esquecida.
+      out.push(line.replace(/\{\{([A-Za-z][\w-]*)\}\}/g, function (m, id) {
+        return has(id) ? value[id] : m;
+      }));
+    });
+    return out.join('\n');
+  }
+
+  // ── camada de leitura da spec ─────────────────────────────────────────────
+
+  /* Converte o elemento <prompt-builder> num objeto simples. Usa só getAttribute,
+     children, tagName e textContent — o mínimo que qualquer DOM oferece. */
+  function pbModel(root) {
+    var model = {
+      id: root.getAttribute('id') || 'pb',
+      lang: root.getAttribute('lang') || 'xml',
+      title: root.getAttribute('title') || '',
+      questions: [],
+      template: ''
+    };
+    var kids = root.children;
+    for (var i = 0; i < kids.length; i++) {
+      var el = kids[i];
+      var tag = String(el.tagName || '').toLowerCase();
+      if (tag === 'template') { model.template = pbDedent(el.textContent); continue; }
+      if (tag !== 'question') continue;
+      var q = {
+        id: el.getAttribute('id') || '',
+        type: el.getAttribute('type') || 'text',
+        label: el.getAttribute('label') || '',
+        help: el.getAttribute('help') || '',
+        join: el.getAttribute('join') || 'newline',
+        placeholder: el.getAttribute('placeholder') || '',
+        initial: el.getAttribute('default') || '',
+        options: []
+      };
+      var opts = el.children;
+      for (var j = 0; j < opts.length; j++) {
+        var o = opts[j];
+        if (String(o.tagName || '').toLowerCase() !== 'option') continue;
+        var v = o.getAttribute('value') || '';
+        var body = pbDedent(o.textContent);
+        q.options.push({
+          value: v,
+          label: o.getAttribute('label') || v,
+          fragment: body || v,                     // corpo vazio: o fragmento é o próprio value
+          checked: o.getAttribute('default') === 'true'
+        });
+      }
+      model.questions.push(q);
+    }
+    return model;
+  }
+
+  /* DOMParser NÃO lança em XML inválido: devolve um documento com <parsererror> dentro.
+     Sem esta checagem o construtor abriria vazio, sem erro em lugar nenhum. */
+  function pbParse(xml) {
+    var doc;
+    try { doc = new global.DOMParser().parseFromString(xml, 'application/xml'); }
+    catch (e) { return { error: 'não consegui parsear a spec: ' + e.message }; }
+    var bad = doc.querySelector('parsererror');
+    if (bad) return { error: (bad.textContent || 'XML inválido').trim().split('\n')[0] };
+    var root = doc.documentElement;
+    if (!root || String(root.tagName).toLowerCase() !== 'prompt-builder')
+      return { error: 'a raiz da spec precisa ser <prompt-builder>' };
+    return { root: root };
+  }
+
+  // Também exposto para uso fora do navegador (verificação) e para quem quiser
+  // montar o prompt por conta em outro contexto.
+  global.__promptBuilder = {
+    parse: pbParse, model: pbModel, defaults: pbDefaults,
+    build: pbBuild, fragment: pbFragment, dedent: pbDedent
+  };
+
+  if (!global.document) return;   // sem DOM (Node): as funções puras acima bastam
+
+  // ── camada do DOM ─────────────────────────────────────────────────────────
+
+  var doc = global.document;
+
+  function el(tag, cls, text) {
+    var n = doc.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  function pbFail(root, message) {
+    var form = root.querySelector('[data-pb-form]');
+    if (!form) return;
+    form.textContent = '';
+    var box = el('div', 'alert alert-danger', 'A spec deste construtor não é XML válido: ' + message);
+    box.setAttribute('role', 'alert');
+    form.appendChild(box);
+  }
+
+  function ctlId(model, q, value) { return model.id + '-' + q.id + '-' + (value || 'input'); }
+
+  function pbField(model, q) {
+    var fs = el('fieldset', 'mb-4');
+    fs.id = model.id + '-' + q.id;                 // id gerado: <pb-id>-<question-id>
+    // .h6 devolve a legend ao tamanho de texto: era isso, e só isso, que pedia CSS próprio.
+    fs.appendChild(el('legend', 'h6 fw-semibold mb-1', q.label));
+    if (q.help) fs.appendChild(el('div', 'form-text mt-0 mb-2', q.help));
+
+    if (q.type === 'radio' || q.type === 'checkbox') {
+      q.options.forEach(function (o) {
+        var wrap = el('div', 'form-check');
+        var input = doc.createElement('input');
+        input.className = 'form-check-input';
+        input.type = q.type;
+        input.id = ctlId(model, q, o.value);
+        input.name = model.id + '-' + q.id;        // radio do mesmo grupo compartilha o name
+        input.value = o.value;
+        var lab = el('label', 'form-check-label', o.label);
+        lab.setAttribute('for', input.id);
+        wrap.appendChild(input);
+        wrap.appendChild(lab);
+        fs.appendChild(wrap);
+      });
+      return fs;
+    }
+
+    var box = doc.createElement(q.type === 'textarea' ? 'textarea' : 'input');
+    box.className = 'form-control';
+    box.id = ctlId(model, q, null);
+    if (q.type === 'textarea') box.rows = 3; else box.type = 'text';
+    if (q.placeholder) box.placeholder = q.placeholder;
+    // A <legend> já rotula na tela; o <label for> existe para o leitor de tela casar o
+    // nome com o controle — visually-hidden evita repetir o texto duas vezes.
+    var lab2 = el('label', 'visually-hidden', q.label);
+    lab2.setAttribute('for', box.id);
+    fs.appendChild(lab2);
+    fs.appendChild(box);
+    return fs;
+  }
+
+  function pbApply(model, state) {
+    model.questions.forEach(function (q) {
+      if (q.type === 'radio' || q.type === 'checkbox') {
+        q.options.forEach(function (o) {
+          var input = doc.getElementById(ctlId(model, q, o.value));
+          if (!input) return;
+          input.checked = q.type === 'radio'
+            ? state[q.id] === o.value
+            : (state[q.id] || []).indexOf(o.value) !== -1;
+        });
+      } else {
+        var box = doc.getElementById(ctlId(model, q, null));
+        if (box) box.value = state[q.id] || '';
+      }
+    });
+  }
+
+  function pbRead(model) {
+    var state = {};
+    model.questions.forEach(function (q) {
+      if (q.type === 'radio') {
+        var hit = q.options.filter(function (o) {
+          var input = doc.getElementById(ctlId(model, q, o.value));
+          return input && input.checked;
+        })[0];
+        state[q.id] = hit ? hit.value : '';
+      } else if (q.type === 'checkbox') {
+        state[q.id] = q.options.filter(function (o) {
+          var input = doc.getElementById(ctlId(model, q, o.value));
+          return input && input.checked;
+        }).map(function (o) { return o.value; });
+      } else {
+        var box = doc.getElementById(ctlId(model, q, null));
+        state[q.id] = box ? box.value : '';
+      }
+    });
+    return state;
+  }
+
+  // localStorage estoura SecurityError em navegação privativa e em parte dos file://
+  // — no acesso, não só na escrita. Os dois sentidos vão em try/catch.
+  function pbLoad(key) {
+    try {
+      var raw = global.localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  function pbSave(key, state) {
+    try { global.localStorage.setItem(key, JSON.stringify(state)); } catch (e) { /* segue sem persistir */ }
+  }
+
+  function pbLegacyCopy(text) {
+    var ta = doc.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;';
+    doc.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length);
+    var ok = false;
+    try { ok = doc.execCommand('copy'); } catch (e) { ok = false; }
+    doc.body.removeChild(ta);
+    return ok;
+  }
+
+  // Reusa o gancho do runtime do template quando ele existe; o fallback próprio deixa
+  // este bloco funcionar colado num HTML que não veio desta skill.
+  function pbCopy(text) {
+    if (typeof global.__explainerCopy === 'function') return global.__explainerCopy(text);
+    if (global.navigator && global.navigator.clipboard && global.isSecureContext) {
+      return global.navigator.clipboard.writeText(text).then(
+        function () { return true; },
+        function () { return pbLegacyCopy(text); });
+    }
+    return Promise.resolve(pbLegacyCopy(text));
+  }
+
+  function pbFlash(btn, ok) {
+    var before = btn.innerHTML;
+    var kept = btn.className;
+    btn.innerHTML = ok ? '<i class="bi bi-check-lg me-1"></i>Copiado'
+                       : '<i class="bi bi-x-lg me-1"></i>Não deu';
+    btn.className = kept.replace(/btn-primary/, ok ? 'btn-success' : 'btn-danger');
+    setTimeout(function () { btn.innerHTML = before; btn.className = kept; }, 1500);
+  }
+
+  function pbBoot(root) {
+    var specEl = doc.getElementById(root.getAttribute('data-pb-spec'));
+    var out = root.querySelector('[data-pb-output]');
+    var form = root.querySelector('[data-pb-form]');
+    if (!specEl || !out || !form) return;
+
+    var parsed = pbParse(specEl.textContent);
+    if (!parsed.root) { pbFail(root, parsed.error); return; }
+    var model = pbModel(parsed.root);
+    var key = 'pb:' + model.id;
+
+    form.textContent = '';                          // o <noscript> some: aqui há JavaScript
+    if (model.title) form.appendChild(el('h3', 'h6 text-body-secondary mb-3', model.title));
+    model.questions.forEach(function (q) { form.appendChild(pbField(model, q)); });
+
+    var state = pbDefaults(model);
+    var saved = pbLoad(key);
+    if (saved) model.questions.forEach(function (q) {
+      // Só chaves conhecidas: spec editada depois de salvo não pode ressuscitar resposta morta.
+      if (Object.prototype.hasOwnProperty.call(saved, q.id)) state[q.id] = saved[q.id];
+    });
+    pbApply(model, state);
+
+    var status = root.querySelector('[data-pb-status]');
+    var last = null;
+
+    function refresh(announce, deferHl) {
+      var now = pbRead(model);
+      var key2 = JSON.stringify(now);
+      if (key2 === last) return;                    // 'input' e 'change' disparam no mesmo clique
+      last = key2;
+      var prompt = pbBuild(model, now);
+      out.textContent = prompt;                     // textContent: o prompt É XML
+      if (deferHl) { pbSave(key, now); return; }    // quem destaca é o highlightAll ainda pendente
+      delete out.dataset.highlighted;               // hljs 11.9+ recusa re-destacar sem isto
+      if (global.hljs) global.hljs.highlightElement(out);
+      if (status && announce) status.textContent = 'prompt atualizado · ' + prompt.split('\n').length + ' linhas';
+      pbSave(key, now);
+    }
+
+    form.addEventListener('input', function () { refresh(true); });
+    form.addEventListener('change', function () { refresh(true); });
+
+    var copy = root.querySelector('[data-pb-copy]');
+    if (copy) copy.addEventListener('click', function () {
+      pbCopy(out.textContent).then(function (ok) {
+        pbFlash(copy, ok);
+        if (status) status.textContent = ok ? 'prompt copiado' : 'não consegui copiar — selecione e use Ctrl+C';
+      });
+    });
+
+    var reset = root.querySelector('[data-pb-reset]');
+    if (reset) reset.addEventListener('click', function () {
+      // Sem removeItem: o refresh() logo abaixo grava os padrões, que passam a ser o
+      // estado salvo. Apagar a chave aqui seria desfeito na linha seguinte.
+      pbApply(model, pbDefaults(model));
+      refresh(false);
+      if (status) status.textContent = 'padrões restaurados';
+    });
+
+    // Primeira montagem. O texto tem de sair AGORA (o bloco pré-preenchido pode estar
+    // desatualizado em relação ao que ficou salvo), mas o destaque depende de quem chega
+    // primeiro: com readyState 'loading' o runtime do template já deixou um
+    // hljs.highlightAll() agendado para o DOMContentLoaded, e se destacássemos aqui ele
+    // reencontraria o bloco com data-highlighted="yes" e cuspiria "Element previously
+    // highlighted" no console de todo mundo que abrisse o documento. Então deixamos o
+    // destaque inicial para ele. Já com o documento pronto (script injetado depois, aba
+    // restaurada) o highlightAll ou já rodou e não volta, ou nem existe: aí destacamos nós.
+    var hlPendente = doc.readyState === 'loading';
+    refresh(false, hlPendente);
+    if (hlPendente) global.addEventListener('DOMContentLoaded', function () {
+      // Rede de segurança, e só isso: este ouvinte foi registrado depois do que o
+      // highlightAll registrou (hljs 11.11 usa window), logo roda depois dele. Se o bloco
+      // continuar sem data-highlighted é porque não havia highlightAll nenhum — documento
+      // sem o runtime do template. Nesse caso o construtor destaca sozinho.
+      if (!out.dataset.highlighted && global.hljs) global.hljs.highlightElement(out);
+    });
+  }
+
+  var roots = doc.querySelectorAll('.prompt-builder[data-pb-spec]');
+  Array.prototype.forEach.call(roots, pbBoot);
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<!-- pb:runtime:end -->
+</body>
+</html>

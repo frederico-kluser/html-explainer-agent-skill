@@ -121,7 +121,7 @@ pega.
 
 `mermaid.esm.min.mjs` tem 29 KB — é um shim. Dentro dele:
 
-```
+```js
 from"./chunks/mermaid.esm.min/chunk-Y3FQM624.mjs"
 from"./chunks/mermaid.esm.min/chunk-7FYTHRHK.mjs"
 …
@@ -139,6 +139,122 @@ como texto sem estilo. É o preço de não ter build, e vale a pena na maioria d
 Quando **não** valer (leitor sem internet, ambiente fechado), a saída é embutir tudo: baixe os
 `.min.css` e `.min.js` e cole dentro de `<style>` e `<script>`. Fica um arquivo de ~500 KB, feio de
 editar, mas 100% offline — e aí **remova** os `integrity`, que só fazem sentido em recurso externo.
+
+## Bloco que muda em runtime: o cache da fonte crua congela o texto
+
+O runtime do template guarda, no `load`, o `textContent` de **todo** `pre > code` num `WeakMap` —
+é assim que o botãozinho de hover copia o código e não os `<span>` do destaque. Num bloco cujo
+conteúdo muda depois (o construtor de prompt é o caso), esse cache é tirado uma vez e nunca mais
+atualizado: a tela mostra o prompt novo, a área de transferência entrega o inicial. Para sempre.
+
+O sintoma é cruel porque nada quebra — a pessoa cola o prompt errado no agente e culpa o agente.
+
+```js
+document.querySelectorAll('pre > code').forEach(function (code) {
+  if (code.closest('[data-live]')) return;   // texto muda em runtime: leia na hora do clique
+  sources.set(code, code.textContent.replace(/\n$/, ''));
+});
+```
+
+`<pre data-live>` marca o bloco vivo, e o `check-doc.mjs` reprova `[data-pb-output]` que não esteja
+dentro de um.
+
+## `hljs` recusa re-destacar — e destacar cedo demais avisa duas vezes
+
+Da 11.9.0 em diante, `highlightElement()` começa com um `if (el.dataset.highlighted) return` seguido
+de `console.log("Element previously highlighted. To highlight again, first unset
+dataset.highlighted.")` — conferido no fonte da 11.11.1, que também grava
+`dataset.highlighted = "yes"` no fim. Então, ao trocar o conteúdo de um bloco já destacado, a ordem
+é sempre esta:
+
+```js
+code.textContent = novo;            // textContent, nunca innerHTML
+delete code.dataset.highlighted;    // sem isto a chamada seguinte só loga e volta
+if (window.hljs) hljs.highlightElement(code);
+```
+
+O irmão dessa armadilha aparece na **carga**. `hljs.highlightAll()` com
+`document.readyState === "loading"` não roda na hora: registra
+`window.addEventListener("DOMContentLoaded", …)` e roda depois. Quem destaca um bloco no meio do
+caminho ganha o aviso no console de **toda** carga do documento, porque o `highlightAll` pendente
+reencontra o bloco já marcado. A condição certa não é "já foi destacado?" — nesse instante o
+atributo ainda não existe — e sim "há um `highlightAll` a caminho?": com `readyState === 'loading'`,
+escreva o texto e deixe o destaque com ele.
+
+## `DOMParser` não lança exceção em XML inválido
+
+Nenhum `throw`, nenhum `catch` que sirva de rede: `parseFromString(xml, 'application/xml')` devolve
+um documento **de erro**, com um elemento `<parsererror>` dentro. Quem só põe `try/catch` em volta
+morre calado — a aba abre vazia, o console limpo, e não há por onde começar a procurar.
+
+```js
+var doc = new DOMParser().parseFromString(xml, 'application/xml');
+var bad = doc.querySelector('parsererror');
+if (bad) return { error: bad.textContent.trim().split('\n')[0] };
+```
+
+E mostre esse erro na tela, não no console: quem abre o arquivo não tem DevTools aberto.
+
+## `</script>` dentro de `<script type="application/xml">` termina o bloco
+
+O parser de HTML não interpreta o conteúdo desse `<script>` — mas procura o fechamento. A primeira
+sequência `</script>` encerra o bloco, **inclusive dentro de `<![CDATA[ … ]]>`**, porque CDATA é
+conceito de XML e o parser de HTML não sabe o que é. O resto do XML vaza para o corpo da página, o
+layout se desfaz e o erro não menciona script nenhum.
+
+Consequência prática: a spec de um construtor não pode conter essa sequência. Se o prompt precisa
+falar de `</script>`, quebre em `<` + `/script>` no fragmento, ou reescreva a frase.
+
+## `aria-live` no bloco de código é pior que não ter
+
+Marcar o `<pre>` do prompt com `aria-live="polite"` parece a coisa acessível a fazer. Na prática o
+leitor de tela relê **as 38 linhas** a cada clique numa opção, e a pessoa desiste do documento antes
+da terceira pergunta.
+
+O anúncio vai numa frase curta, num elemento à parte: `prompt atualizado · 38 linhas`. O bloco de
+código fica mudo — quem quiser lê no próprio ritmo.
+
+## `localStorage` estoura `SecurityError` — no acesso, não só na escrita
+
+Navegação privativa e parte dos `file://` bloqueiam o objeto inteiro. Sem `try/catch`, a exceção
+sobe e derruba **o resto do handler** — o clique que salvava a resposta para de atualizar o prompt
+também, e o documento fica inerte sem dizer por quê. Vale para ler e para gravar:
+
+```js
+function load(key) {
+  try { var raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; }
+  catch (e) { return null; }                 // sem persistência, mas o documento segue vivo
+}
+```
+
+Persistir é enfeite; funcionar não é. (`references/tabs.md` documenta a mesma causa para abas
+sincronizadas.)
+
+## `innerHTML` come as tags do prompt
+
+O prompt montado **é** XML. Jogado com `innerHTML`, o navegador interpreta: `<level name="padrao">`
+vira um elemento desconhecido, o texto some da tela e o que sobra é um prompt sem as tags que davam
+sentido a ele. `textContent` faz o que se espera, e é mais rápido.
+
+## Parsing de atributo por `[^>]*` mente
+
+Regex de tag no formato `<div[^>]*>` parece inofensiva e não é. Duas verdades a derrubam: `>` sem
+escape é **legal** dentro de um valor de atributo (XML e HTML), e aspas **simples** são legais em
+HTML. Isso custou quatro defeitos bloqueantes no `check-doc.mjs`, todos achados por revisão
+adversarial, nenhum por teste:
+
+- casca escrita com `class='prompt-builder'` ficava invisível para o linter — e com ela iam embora,
+  em silêncio, todas as checagens que dependem de achar a casca;
+- a palavra "default" dentro de um `label` contava como o atributo `default`, e a pergunta passava
+  a ter duas opções padrão aos olhos de quem checava;
+- `class="prompt-builder-legend"`, um auxiliar decorativo, virava uma casca fantasma — porque `\b`
+  trata `-` como fronteira de palavra, e a classe era casada como substring em vez de token da
+  lista;
+- um `>` legítimo dentro de um valor de atributo fechava a tag cedo, e o resto dos atributos
+  desaparecia da análise.
+
+A correção é sempre a mesma: parseie os atributos respeitando aspas duplas, aspas simples e valor
+pelado, e compare classe como **token** de `class.split(/\s+/)`, nunca como substring.
 
 ## Coisas que parecem problema e não são
 

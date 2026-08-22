@@ -28,6 +28,8 @@ isso sem exigir build, servidor ou repositório do outro lado.
 | **Linter** | `scripts/check-doc.mjs` — reprova par ARIA quebrado, duas abas ativas, `<` não escapado, versão flutuante de CDN, arquivo externo ao lado. |
 | **Gerador** | `scripts/new-doc.mjs "Título" saida.html --tabs "A,B,C"` — monta a casca com os `id`/`aria-*` já pareados. |
 | **Escapador** | `scripts/escape-code.mjs arquivo.ts --lines 40-58` — vira um `<pre><code>` pronto para colar. |
+| **Construtor de prompt** | `assets/prompt-builder.html` — uma aba que remonta um prompt XML ao vivo a partir de perguntas em radio/checkbox. Opcional, e só sob pedido. |
+| **Gerador do construtor** | `scripts/new-builder.mjs spec.xml --into doc.html` — enxerta essa aba num documento já pronto; `--force` regera, idempotente. |
 | **Referências** | CDN e SRI · abas e ARIA · blocos de código · componentes Bootstrap · armadilhas · como escrever o texto. |
 
 Tudo em `references/` é lido sob demanda: o `SKILL.md` é curto e aponta para o arquivo certo quando
@@ -70,6 +72,50 @@ node html-explainer-agent-skill/scripts/check-doc.mjs ./cache.html
 ✓ cache.html — sem problemas
 ```
 
+**Rodar os scripts** e **rodar a suíte** pedem coisas diferentes, e vale separar. Os quatro
+scripts (`new-doc`, `new-builder`, `check-doc`, `escape-code`) não usam nenhuma API posterior ao
+Node 18 — em Node 18 puro eles funcionam. O `">=18.20.8"` do `engines` é o piso da **suíte de
+testes**, medido: no 18.0.0 o `node --test` nem existe; no 18.9.0 o runner sai **verde rodando
+só 4 dos 332 testes** (o pior desfecho possível); no 18.13.0 as aspas angulares (`«`) das
+mensagens do linter estouram o lexer TAP. O 18.20.8 é o menor valor testado que se comporta, e um
+`pretest` aborta com mensagem explícita abaixo dele.
+
+## Construtor de prompt — opcional, e só sob pedido
+
+Uma **aba a mais**, que remonta um prompt XML ao vivo a partir de perguntas em `radio`/`checkbox`:
+o leitor clica, o bloco de código muda, o botão grande copia. Documento normal **não** tem
+construtor — ele entra quando pedem "construtor de prompts", "prompt configurável", "montar o
+prompt clicando".
+
+**[▶ Veja um construtor ao vivo](https://frederico-kluser.github.io/html-explainer-agent-skill/html-explainer-agent-skill/assets/prompt-builder.html)** — `assets/prompt-builder.html`, ao lado do exemplo.
+
+Atalho de uma linha, com a spec de planejamento padrão:
+
+```bash
+node html-explainer-agent-skill/scripts/new-doc.mjs "Plano da migração" ./plano.html --builder
+```
+
+```
+./plano.html criado — 3 abas: #pane-visao-geral #pane-como-fazer #pane-armadilhas
+  + aba "Construtor" (#pane-pb-plano) com o construtor #pb-plano — spec padrão (planejamento)
+```
+
+Ou o fluxo mais comum — documento primeiro, construtor depois, com as perguntas que o caso pede:
+
+```bash
+node html-explainer-agent-skill/scripts/new-builder.mjs --example > spec.xml   # edite as perguntas
+node html-explainer-agent-skill/scripts/new-builder.mjs spec.xml --into ./plano.html
+node html-explainer-agent-skill/scripts/check-doc.mjs ./plano.html
+```
+
+```
+./plano.html — aba "Construtor" (#pane-pb-revisao) com o construtor #pb-revisao
+```
+
+**Os dois caminhos não dão o mesmo `id`, e isso é esperado.** `--builder` sem `--spec` usa a spec
+padrão de planejamento e produz `#pane-pb-plano`; a spec de `--example` declara `id="revisao"` e
+produz `#pane-pb-revisao`. O `id` sai da spec, não do comando.
+
 ## O que está dentro do documento gerado
 
 - `<html data-bs-theme="dark">` + `<meta name="color-scheme" content="dark">` — escuro de verdade,
@@ -86,7 +132,7 @@ node html-explainer-agent-skill/scripts/check-doc.mjs ./cache.html
 ## Verificado, não presumido
 
 Os números da documentação foram medidos em Chromium/Brave sobre `file://`, não copiados de blog.
-Dois exemplos:
+Três exemplos:
 
 - **Diagrama em aba escondida quebra.** Mermaid 11.16, dois diagramas idênticos: no painel visível o
   SVG sai com `viewBox="0 0 340.45 70"`; no painel escondido, `viewBox="-8 -8 16 16"` — uma caixa de
@@ -95,6 +141,12 @@ Dois exemplos:
 - **`file://` é contexto seguro no Chromium** — `window.isSecureContext === true` e
   `navigator.clipboard` existe. O fallback do botão de copiar continua necessário, mas por causa de
   `http://` em IP de rede local, não do `file://`. Metade dos tutoriais erra nisso.
+- **O construtor não mente para quem não tem JavaScript.** O prompt que já está no bloco antes de
+  qualquer clique — o que sai no PDF e o que vê quem abriu com JS desligado — é **byte a byte** o
+  que o construtor entrega no primeiro clique: 1086 bytes idênticos dos dois lados, em `file://` e
+  em `http://`. Não é coincidência mantida à mão: é o próprio runtime do documento que calcula esse
+  texto na hora de gerar o arquivo, e o teste morre se um caractere ou um espaço de indentação
+  divergir.
 
 ## Quando *não* usar
 
