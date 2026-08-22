@@ -13,7 +13,7 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SKILLS=(html-explainer)
+SKILLS=(html-explainer-agent-skill)
 
 # Diretórios de skill dos agentes. Um que não existir é simplesmente pulado — não
 # criamos árvore de agente que a pessoa não usa.
@@ -111,7 +111,7 @@ if [[ "$MODE" == install ]]; then
   if command -v node >/dev/null 2>&1; then
     echo
     echo "Teste rápido:"
-    echo "  node $REPO/html-explainer/scripts/check-doc.mjs $REPO/html-explainer/assets/example.html"
+    echo "  node $REPO/html-explainer-agent-skill/scripts/check-doc.mjs $REPO/html-explainer-agent-skill/assets/example.html"
   else
     yellow "Node não encontrado. O template funciona sem ele; os scripts (new-doc, check-doc, escape-code) não."
   fi

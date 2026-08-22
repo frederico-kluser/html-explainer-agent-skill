@@ -1,4 +1,4 @@
-# html-explainer
+# html-explainer-agent-skill
 
 Uma [Agent Skill](https://code.claude.com/docs/en/skills) que faz um agente de código **parar de
 responder em Markdown** e entregar **um arquivo `.html`** — conteúdo separado em abas, tema escuro,
@@ -7,7 +7,7 @@ código destacado com botão de copiar, tudo por CDN.
 Sem `npm install`, sem bundler, sem pasta de assets. Um arquivo que abre com duplo clique, vai por
 anexo de e-mail e funciona offline no navegador de quem receber.
 
-**[▶ Veja o documento de exemplo ao vivo](https://frederico-kluser.github.io/html-explainer-skill/html-explainer/assets/example.html)** — ele é a saída da skill, e explica a skill.
+**[▶ Veja o documento de exemplo ao vivo](https://frederico-kluser.github.io/html-explainer-agent-skill/html-explainer-agent-skill/assets/example.html)** — ele é a saída da skill, e explica a skill.
 
 ![exemplo](docs/preview.png)
 
@@ -36,8 +36,8 @@ o caso aparece.
 ## Instalação
 
 ```bash
-git clone https://github.com/frederico-kluser/html-explainer-skill.git
-cd html-explainer-skill
+git clone https://github.com/frederico-kluser/html-explainer-agent-skill.git
+cd html-explainer-agent-skill
 ./install.sh
 ```
 
@@ -58,12 +58,12 @@ abas"*, *"documenta essa API"* — que a skill dispara sozinha.
 Os scripts funcionam como ferramenta de linha de comando (Node ≥ 18, zero dependências):
 
 ```bash
-node html-explainer/scripts/new-doc.mjs "Como o cache invalida" ./cache.html \
+node html-explainer-agent-skill/scripts/new-doc.mjs "Como o cache invalida" ./cache.html \
      --tabs "Resposta,Como funciona,Armadilhas" --sub "v3 · jul/2026"
 
 # preencha o conteúdo…
 
-node html-explainer/scripts/check-doc.mjs ./cache.html
+node html-explainer-agent-skill/scripts/check-doc.mjs ./cache.html
 ```
 
 ```

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * check-doc.mjs — linter dos HTML gerados pela skill html-explainer.
+ * check-doc.mjs — linter dos HTML gerados pela skill html-explainer-agent-skill.
  *
  *   node check-doc.mjs documento.html [outro.html ...]
  *   node check-doc.mjs documento.html --quiet    # só erros, sem os avisos

@@ -1,5 +1,5 @@
 {
-  "name": "html-explainer-skill",
+  "name": "html-explainer-agent-skill",
   "version": "1.0.0",
   "description": "Skill do pi coding agent: explicar/documentar com UM arquivo .html em abas, tema escuro, Bootstrap 5 CDN, destaque de sintaxe e botão copiar.",
   "license": "MIT",
@@ -14,23 +14,23 @@
     "tabs",
     "bootstrap"
   ],
-  "homepage": "https://github.com/frederico-kluser/html-explainer-skill#readme",
+  "homepage": "https://github.com/frederico-kluser/html-explainer-agent-skill#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/frederico-kluser/html-explainer-skill.git"
+    "url": "git+https://github.com/frederico-kluser/html-explainer-agent-skill.git"
   },
   "engines": {
     "node": ">=18.0.0"
   },
   "files": [
-    "html-explainer/",
+    "html-explainer-agent-skill/",
     "install.sh",
     "README.md",
     "docs/"
   ],
   "pi": {
     "skills": [
-      "html-explainer"
+      "html-explainer-agent-skill"
     ]
   }
 }

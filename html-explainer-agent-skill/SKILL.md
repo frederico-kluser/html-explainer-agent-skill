@@ -1,5 +1,5 @@
 ---
-name: html-explainer
+name: html-explainer-agent-skill
 description: >-
   Explicar, documentar ou demonstrar algo entregando UM arquivo .html com o conteúdo
   separado em ABAS (tabs), tema escuro, Bootstrap 5 por CDN, destaque de sintaxe
@@ -48,7 +48,7 @@ para **versionar e revisar em PR**, Markdown.
 **1. Copie o template. Não escreva do zero.**
 
 ```bash
-node ~/.claude/skills/html-explainer/scripts/new-doc.mjs "Título do documento" ./saida.html
+node ~/.claude/skills/html-explainer-agent-skill/scripts/new-doc.mjs "Título do documento" ./saida.html
 ```
 
 Ou simplesmente leia `assets/template.html` e reproduza. O template já traz: `<html
@@ -67,7 +67,7 @@ Catálogo pronto para documentação técnica em `references/components.md`.
 ativas, `<` não escapado dentro de `<code>`, bloco de código sem linguagem declarada, link `http://`.
 
 ```bash
-node ~/.claude/skills/html-explainer/scripts/check-doc.mjs ./saida.html
+node ~/.claude/skills/html-explainer-agent-skill/scripts/check-doc.mjs ./saida.html
 ```
 
 **5. Abra o arquivo e olhe.** `xdg-open saida.html`. Se você não abriu, não terminou.
@@ -119,7 +119,7 @@ Regras de bolso:
    highlight.js chuta — e chuta diferente em cada bloco.
 8. **Dentro de `<pre><code>`, escape `&` `<` `>`.** Sem exceção. Use o helper:
    ```bash
-   node ~/.claude/skills/html-explainer/scripts/escape-code.mjs arquivo.ts --lang ts
+   node ~/.claude/skills/html-explainer-agent-skill/scripts/escape-code.mjs arquivo.ts --lang ts
    ```
 9. **Todo `id` é único e todo par aba↔painel bate**: `button#tab-x[data-bs-target="#pane-x"][aria-controls="pane-x"]`
    ↔ `div#pane-x[aria-labelledby="tab-x"]`. Um `id` repetido faz a aba errada abrir.

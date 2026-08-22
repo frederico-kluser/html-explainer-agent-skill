@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- Exemplo completo produzido pela skill html-explainer. É ao mesmo tempo a demonstração
+<!-- Exemplo completo produzido pela skill html-explainer-agent-skill. É ao mesmo tempo a demonstração
      e a documentação: cada aba usa os padrões que descreve. Abra com duplo clique. -->
 <html lang="pt-BR" data-bs-theme="dark">
 <head>
@@ -46,7 +46,7 @@
 
 <nav class="navbar navbar-expand-lg sticky-top bg-body-tertiary border-bottom">
   <div class="container" style="max-width: 64rem">
-    <span class="navbar-brand fw-semibold"><i class="bi bi-window-stack me-1"></i>html-explainer</span>
+    <span class="navbar-brand fw-semibold"><i class="bi bi-window-stack me-1"></i>html-explainer-agent-skill</span>
     <span class="navbar-text small text-body-secondary d-none d-md-inline">um arquivo · sem build · tema escuro</span>
   </div>
 </nav>
@@ -160,12 +160,12 @@
       <h3 class="h5 mt-4">Gerando pela skill</h3>
       <p>O script monta a casca com as abas já pareadas — que é onde o erro costuma nascer:</p>
 
-<pre><code class="language-bash">node ~/.claude/skills/html-explainer/scripts/new-doc.mjs \
+<pre><code class="language-bash">node ~/.claude/skills/html-explainer-agent-skill/scripts/new-doc.mjs \
   "Como o cache invalida" ./cache.html \
   --tabs "Resposta,Como funciona,Armadilhas" --sub "v3 · jul/2026"
 
 # preencha o conteúdo, depois valide:
-node ~/.claude/skills/html-explainer/scripts/check-doc.mjs ./cache.html</code></pre>
+node ~/.claude/skills/html-explainer-agent-skill/scripts/check-doc.mjs ./cache.html</code></pre>
 
       <p>O linter reprova o que o olho não vê. Numa página propositalmente quebrada:</p>
 
@@ -305,7 +305,7 @@ bootstrap.Tab.getOrCreateInstance(trigger).show();</code></pre>
         do bloco some e o layout se desfaz em silêncio.
       </p>
 
-<pre><code class="language-bash">node ~/.claude/skills/html-explainer/scripts/escape-code.mjs src/auth.ts --lines 40-58</code></pre>
+<pre><code class="language-bash">node ~/.claude/skills/html-explainer-agent-skill/scripts/escape-code.mjs src/auth.ts --lines 40-58</code></pre>
 
       <div class="alert alert-warning d-flex gap-2" role="alert">
         <i class="bi bi-terminal-fill flex-shrink-0"></i>
@@ -616,7 +616,7 @@ document.querySelectorAll('[data-bs-toggle="tab"]').forEach(t =&gt; {
   </div>
 
   <footer class="text-body-secondary small border-top mt-5 pt-3">
-    Gerado com a skill <a href="https://github.com/frederico-kluser/html-explainer-skill">html-explainer</a>.
+    Gerado com a skill <a href="https://github.com/frederico-kluser/html-explainer-agent-skill">html-explainer-agent-skill</a>.
     Bootstrap 5.3.8 · highlight.js 11.11.1 · Mermaid 11.16.0 — tudo por CDN, um arquivo só.
     Verificado em 2026-07-29.
   </footer>

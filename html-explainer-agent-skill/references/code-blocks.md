@@ -50,9 +50,9 @@ hljs.highlightAll();
 Use o helper em vez de escapar à mão:
 
 ```bash
-node ~/.claude/skills/html-explainer/scripts/escape-code.mjs arquivo.tsx
-node ~/.claude/skills/html-explainer/scripts/escape-code.mjs arquivo.tsx --lines 40-58
-cat trecho | node ~/.claude/skills/html-explainer/scripts/escape-code.mjs --lang json
+node ~/.claude/skills/html-explainer-agent-skill/scripts/escape-code.mjs arquivo.tsx
+node ~/.claude/skills/html-explainer-agent-skill/scripts/escape-code.mjs arquivo.tsx --lines 40-58
+cat trecho | node ~/.claude/skills/html-explainer-agent-skill/scripts/escape-code.mjs --lang json
 ```
 
 E o `check-doc.mjs` reprova o arquivo se sobrar `<` cru.
