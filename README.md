@@ -140,7 +140,7 @@ como ciência. Fontes e ressalvas completas em `references/didatica.md`.
 npm test          # node --test, sem rede, sem tocar no $HOME de verdade
 ```
 
-Vinte e dois casos, nenhum tocando a rede nem o `$HOME` de verdade: onde o script baixaria, os
+Trinta e quatro casos, nenhum tocando a rede nem o `$HOME` de verdade: onde o script baixaria, os
 testes apontam `HX_INSTALL_URL`, `HX_PLANNOTATOR_REPO` e `HX_VE_REPO` para um `file://` — é assim
 que `fetch_skill` e `install_bin`, os dois únicos caminhos que baixam e dão `rm -rf`, ficam
 cobertos. O ambiente é montado por allowlist, para que um `HX_*` exportado no shell de quem roda
