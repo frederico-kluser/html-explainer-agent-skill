@@ -1,202 +1,217 @@
 ---
 name: html-explainer-agent-skill
 description: >-
-  Explicar, documentar ou demonstrar algo entregando UM arquivo .html com o conteúdo
-  separado em ABAS (tabs), tema escuro, Bootstrap 5 por CDN, destaque de sintaxe
-  automático e botão de copiar em cada bloco de código — em vez de responder com
-  Markdown, README ou .md solto. Use ao pedir "explica isso", "monta um documento",
-  "faz um relatório/guia/tutorial/comparativo", "documenta essa API", "me manda um
-  HTML", "prefiro em abas", "sem markdown" — e sempre que a resposta tiver mais de um
-  eixo (visão geral × código × armadilhas, antes × depois, por linguagem) e couber
-  melhor em abas do que em rolagem infinita. Opcional e só sob pedido: uma aba
-  CONSTRUTOR DE PROMPT (prompt builder) que remonta um prompt XML ao vivo a partir de
-  perguntas de radio/checkbox — acione ao pedir "construtor de prompts", "gerador de
-  prompt", "prompt configurável", "montar o prompt clicando". NÃO use para páginas de
-  produto, app React, site com build/npm, ou quando o destino é um repositório que
-  espera Markdown (README, docs/, wiki).
+  Explicar um assunto para uma pessoa entender de verdade — com DIAGRAMAS, com as buzzwords
+  definidas onde aparecem, e com o andaime calibrado pelo nível do leitor. A skill NÃO desenha o
+  HTML: ela escreve o BRIEF DIDÁTICO (leitor, afirmação por figura, tipo de diagrama, glossário
+  inline, caminho crítico sinalizado, o que dobrar para o experiente pular) e SEMPRE delega a
+  renderização e a entrega para a skill plannotator-visual-explainer, que abre o resultado na UI do
+  Plannotator — instalando e configurando o Plannotator sozinha, em todos os agent skill dirs, se
+  ele faltar. Use ao pedir "explica isso", "me explica direito", "monta um documento", "faz
+  um guia/tutorial/comparativo", "documenta essa API/esse fluxo", "desenha como funciona", "faz um
+  diagrama disso", "explica pra quem nunca viu". NÃO use para página de produto, app com estado,
+  site com build, nem quando o destino é um README/docs de repositório — lá o formato é Markdown.
 license: MIT
 metadata:
-  version: "1.1.0"
-  requires: "Nada. Zero dependência local — o HTML puxa tudo de CDN. Os scripts opcionais rodam em Node ≥ 18; só a suíte de testes do repositório exige Node ≥ 18.20.8."
-  last-reviewed: "2026-08-05"
+  version: "2.0.0"
+  requires: >-
+    Plannotator (instalado automaticamente por scripts/plannotator-setup.sh --install), git e curl.
+    Node ≥ 18 apenas para a suíte de testes do repositório.
+  last-reviewed: "2026-08-22"
 ---
 
-# Um arquivo, abas, tema escuro
+# Explicar é desenhar, definir e calibrar
 
-> O entregável desta skill é **um único `.html`** que a pessoa salva, manda por anexo, abre com
-> duplo clique e lê offline — sem servidor, sem `npm install`, sem pasta de assets. Todo o visual
-> vem do Bootstrap 5 por CDN; o conteúdo vive em abas; o código sai destacado e com botão de copiar.
+> **O que esta skill entrega:** não um arquivo, mas uma **explicação construída sob regras
+> didáticas** — que a skill `plannotator-visual-explainer` renderiza e o Plannotator abre para
+> anotação. O valor está no BRIEF: decidir o que vira figura, qual figura, o que é sinalizado, quais
+> termos são definidos e onde, e quanto andaime o leitor recebe.
 >
-> A razão de existir: Markdown empilha tudo numa coluna infinita. Quando a explicação tem mais de
-> um eixo — a visão geral, o código, o passo a passo, as armadilhas, cada linguagem, cada ambiente —
-> o leitor tem que rolar procurando. **Aba é o índice que não some da tela.**
-
-## Quando usar
-
-Sempre que o pedido for **explicar / documentar / demonstrar / comparar** algo para um humano ler, e
-a resposta for maior que alguns parágrafos. Gatilhos diretos: "faz um documento", "monta um guia",
-"me explica isso direito", "gera um HTML", "quero em abas", "não quero markdown", "manda um
-relatório", "documenta essa API/esse fluxo/essa decisão".
-
-**Não serve para:** página de produto ou landing, aplicação com estado (isso é React/Vue), site com
-build, e o caso em que o arquivo vai virar `README.md` ou entrar em `docs/` de um repositório — lá o
-formato esperado é Markdown mesmo. Na dúvida entre `.md` e `.html`: se é para **ler**, HTML; se é
-para **versionar e revisar em PR**, Markdown.
+> **O que ela deixou de fazer:** desenhar HTML. Nada de template Bootstrap, abas, tema escuro
+> próprio, linter de HTML ou construtor de prompt. Esse frontend saiu na v2.0.0. Quem compõe o HTML
+> é a skill de render; quem entrega é o Plannotator.
 
 ## O procedimento — nesta ordem
 
-**1. Copie o template. Não escreva do zero.**
+### 0. Portão: o Plannotator existe?
+
+O script mora ao lado deste arquivo, e **onde** isso é depende do harness — não cravar o caminho:
 
 ```bash
-node ~/.claude/skills/html-explainer-agent-skill/scripts/new-doc.mjs "Título do documento" ./saida.html
+for d in ~/.agents/skills ~/.claude/skills "${CLAUDE_CONFIG_DIR:-/nao-existe}/skills" ~/.claude-*/skills; do
+  s="$d/html-explainer-agent-skill/scripts/plannotator-setup.sh"
+  [ -f "$s" ] && { bash "$s" --install; break; }
+done
 ```
 
-Ou simplesmente leia `assets/template.html` e reproduza. O template já traz: `<html
-data-bs-theme="dark">`, as tags de CDN com SRI conferido, o CSS mínimo, a estrutura de abas com ARIA
-correta e o bloco `<script>` do runtime (highlight + copiar + deep-link). **Esse `<script>` final é
-copiado inteiro e não se edita** — cada linha dele existe por causa de uma armadilha documentada em
-`references/pitfalls.md`.
+Sai **0** e pode seguir. Sai **1 ou 2**, leia `references/plannotator.md` e resolva — a entrega
+depende disso. Idempotente: com tudo pronto não muda nada.
 
-**2. Decida as abas ANTES de escrever.** Esta é a única decisão de design que importa aqui, e é de
-conteúdo, não de código. Ver "Como fatiar em abas" abaixo.
+**Se o laço não achar o script** (nada rodou, nenhum código de saída), a skill foi instalada por um
+caminho que ele não cobre: procure com `find ~ -name plannotator-setup.sh -path '*html-explainer*' 2>/dev/null`
+ou rode `./install.sh` no repositório. Não siga em frente sem o portão — sem Plannotator, o passo 4
+não tem para quem delegar.
 
-**3. Escreva o conteúdo dentro dos `.tab-pane`,** usando componentes do Bootstrap — nunca CSS novo.
-Catálogo pronto para documentação técnica em `references/components.md`.
+Este passo instala, quando falta: o binário, a skill `plannotator-visual-explainer`, a skill
+`visual-explainer` (nicobailon, que é quem de fato compõe o HTML na rota "todo o resto") e o
+**destrave da invocação pelo modelo** — sem ele, a delegação é uma ordem impossível de cumprir.
 
-**4. Rode o linter antes de entregar.** Ele pega o que o olho não pega: par ARIA quebrado, duas abas
-ativas, `<` não escapado dentro de `<code>`, bloco de código sem linguagem declarada, link `http://`.
+### 1. Decida o leitor. Sem isso, não comece. (R2)
 
-```bash
-node ~/.claude/skills/html-explainer-agent-skill/scripts/check-doc.mjs ./saida.html
-```
+Uma das quatro etiquetas, e ela governa todo o resto:
 
-**5. Abra o arquivo e olhe.** `xdg-open saida.html`. Se você não abriu, não terminou.
+| Leitor | O que muda |
+|---|---|
+| **novato** no assunto | pré-treino de termos antes da figura, exemplo resolvido, passo a passo explícito |
+| **intermediário** | figura primeiro, andaime dobrado |
+| **experiente** | direto ao mecanismo e às arestas; nada de passo a passo |
+| **misto / desconhecido** | **trate como novato** e use dobradura para o experiente pular |
 
-**Condicional — se pediram um construtor de prompt.** Não é um sexto passo: um documento normal
-não tem construtor. Atalho de uma linha, com a spec de planejamento padrão:
+A regra do "misto" não é covardia: a meta-análise de reversão por expertise mede assistência alta
+ajudando o novato (d = +0,505) e atrapalhando o experiente (d = −0,428), e os próprios autores
+concluem *"rather provide assistance than to withhold it when in doubt"*. O detalhe: **em nenhum
+estudo o nível foi autodeclarado** — o que o leitor diz de si é proxy ruidoso. Errar para mais
+andaime é a aposta certa.
 
-```bash
-node ~/.claude/skills/html-explainer/scripts/new-doc.mjs "Plano da migração" ./plano.html --builder
-```
+Se o pedido não diz o nível e dá para perguntar em uma linha, **pergunte**. Se não dá, assuma misto
+e escreva isso no BRIEF.
 
-Ou o fluxo mais comum — documento primeiro, construtor depois, com as perguntas que o caso pede:
+### 2. Passe o portão de complexidade. (R3)
 
-```bash
-node ~/.claude/skills/html-explainer/scripts/new-builder.mjs --example > spec.xml   # edite as perguntas
-node ~/.claude/skills/html-explainer/scripts/new-builder.mjs spec.xml --into ./plano.html
-node ~/.claude/skills/html-explainer/scripts/check-doc.mjs ./plano.html
-```
+O assunto tem **muitas peças que só fazem sentido juntas** (protocolo, arquitetura, algoritmo,
+migração), ou é **fato/definição/nomenclatura**?
 
-Variantes: `--builder --spec spec.xml` (spec própria já no `new-doc.mjs`), `--tab-label "Prompt de
-revisão"`, `--into … --force` (regera a aba daquele construtor, idempotente) e o `new-builder.mjs`
-sem `--into`, que só imprime os blocos no stdout. O contrato — esquema XML, atributos, ganchos,
-armadilhas — está em `references/prompt-builder.md`; leia antes de escrever uma spec à mão.
+- **Muitas peças** → arsenal completo: figura, exemplo resolvido, segmentação, sinalização.
+- **Fato ou definição** → o arsenal **inverte**. Pergunte antes de responder, esconda a resposta
+  atrás de um `<details>`, force a recuperação. Sweller et al. mediram material definicional
+  produzindo um *reverse worked example effect*: quem teve de gerar a resposta aprendeu mais que
+  quem a viu pronta.
 
-## Como fatiar em abas
+Não gaste diagrama em conteúdo simples — ali ele é ornamento.
 
-Aba boa é **eixo paralelo**: as fatias respondem à mesma pergunta de ângulos diferentes, e o leitor
-escolhe *um*. Aba ruim é **sequência**: passo 1, passo 2, passo 3 — isso é rolagem, não aba, porque
-o leitor quer os três em ordem.
+### 3. Escreva o BRIEF DIDÁTICO.
 
-| Fatie por | Quando | Exemplo de abas |
+É o artefato desta skill. Markdown, num arquivo temporário, com **exatamente** estas seções:
+
+```markdown
+# <título: a pergunta que o documento responde>
+
+## Resposta em uma frase
+<a conclusão, antes de qualquer contexto — quem só queria isso já pode ir embora>
+
+## Leitor
+nível: novato | intermediário | experiente | misto
+já sabe: <o que se pode assumir>
+não sabe: <o que precisa ser construído>
+
+## Portão de complexidade
+alta interatividade | baixa (definicional → gerar antes de mostrar)
+
+## Buzzwords
+| Termo | Primeira aparição | Definição (≤20 palavras) |
 |---|---|---|
-| **Profundidade** | O leitor médio quer a resposta; alguns querem o porquê | `Resposta` · `Como funciona` · `Referência completa` |
-| **Papel** | Públicos diferentes leem partes diferentes | `Para quem usa` · `Para quem integra` · `Para quem opera` |
-| **Alternativa** | O ponto é comparar | `Opção A` · `Opção B` · `Trade-offs` |
-| **Ambiente/linguagem** | Mesmo conteúdo, sintaxe diferente | `curl` · `Python` · `TypeScript` |
-| **Momento** | Migração, refactor, antes/depois | `Como era` · `Como fica` · `Como migrar` |
 
-Regras de bolso:
+## Figuras
+### Figura 1 — <a AFIRMAÇÃO, uma frase; vira a legenda>
+tipo: flowchart TD | sequenceDiagram | stateDiagram-v2 | erDiagram | …
+nós: <lista>
+arestas: <origem → destino : RÓTULO> (toda aresta tem rótulo)
+sinalizar: <o nó/caminho crítico> + <a frase de texto que aponta para ele>
 
-- **3 a 6 abas.** Menos que 3, use seções com `<h2>`. Mais que 6, agrupe — ou troque para
-  `nav-pills` empilhado à esquerda (`.flex-column`), que aguenta mais itens.
-- **A primeira aba responde a pergunta.** Ninguém deve precisar clicar para saber a conclusão.
-- **Rótulo curto e concreto**: `Armadilhas`, não `Considerações adicionais importantes`.
-- **Nenhuma aba pode ficar vazia ou quase.** Duas linhas soltas viram um `<div class="alert">` na
-  aba vizinha.
-- **Nada crítico só dentro de uma aba escondida.** Aviso de segurança, pré-requisito e "isso apaga
-  seu banco" ficam fora das abas, no topo.
+## Segmentos
+1. <passo com título próprio>
+2. …
+
+## Dobrado (o experiente pula)
+- <o que vai em <details>: derivação, passo a passo, exemplo resolvido>
+
+## Fora
+- <o que foi cortado por decorativo, duplicado ou redundante>
+```
+
+Regras que o BRIEF tem de satisfazer antes de sair:
+
+1. **Toda estrutura vira figura** (R1). Conceito com partes que se relacionam nasce desenhado. Prosa
+   descrevendo um diagrama não é um diagrama.
+2. **Uma figura, uma afirmação.** Se a frase da legenda não sai, a figura não existe.
+3. **Toda aresta tem rótulo.** Seta sem rótulo diz "tem alguma relação" — o leitor já supunha.
+4. **Sinalize o crítico duas vezes** (R4): na figura *e* no texto. O texto sinaliza mais forte — no
+   próprio Schneider et al., *"text signaling generally improved retention and transfer to a greater
+   extent than graphic signaling"*. Sinalizar tudo é não sinalizar nada.
+5. **Rótulo curto dentro da figura** (R5), nunca legenda distante — e nunca parágrafo dentro do nó:
+   proximidade demais mede **pior** que proximidade média.
+6. **Toda buzzword definida na primeira aparição** — a tabela é fechada, sem "definir conforme
+   necessário". Protocolo em `references/buzzwords.md`.
+7. **Segmentos com título próprio** (R7), não um muro de texto.
+8. **Nada decorativo, nada duplicado** (R6, R8). Texto que só redescreve a figura se **apaga**, não
+   se embute.
+9. **Andaime dobrado, nunca omitido** (R9).
+
+### 4. Delegue a renderização. Sempre.
+
+Invoque a skill **`plannotator-visual-explainer`**, passando o BRIEF e o caminho de saída. Ela
+roteia: plano/proposta e PR têm estrutura prescritiva própria; **explicação** cai na rota "todo o
+resto", que compõe com a `visual-explainer` aplicando os tokens de tema do Plannotator.
+
+**Não escreva o HTML na mão.** Se a skill de render não aparecer como invocável, o problema é o
+passo 0 — volte e conserte, não contorne.
+
+### 5. Entregue pela UI do Plannotator.
+
+```bash
+plannotator annotate <arquivo.html>            # explicação: informativo
+plannotator annotate <arquivo.md> --gate       # plano/proposta: aprovar ou negar
+```
+
+Nunca `xdg-open`, nunca `open`. A UI é o canal: é onde a pessoa anota, e a anotação volta como
+feedback para você tratar.
 
 ## Regras duras
 
-1. **Um arquivo. Sempre.** Zero `.css`, `.js` ou imagem ao lado. Imagem entra como `data:` URI ou
-   SVG inline; ícone vem do Bootstrap Icons por CDN.
-2. **Nada de npm, bundler ou build.** Só `<link>` e `<script src>` apontando para CDN, com
-   `integrity` + `crossorigin` (SRI). URLs e hashes conferidos em `references/cdn.md`.
-3. **Escuro e só escuro.** `<html data-bs-theme="dark">` + `<meta name="color-scheme"
-   content="dark">`. Sem alternador de tema, sem `prefers-color-scheme`, sem variante clara — o
-   pedido é legibilidade, e um tema é mais fácil de acertar que dois.
-4. **Versão travada na URL do CDN.** `bootstrap@5.3.8`, nunca `bootstrap@5` nem `@latest`: versão
-   flutuante quebra o SRI no dia do release e o documento morre sem aviso.
-5. **CSS próprio é exceção, e cabe numa tela.** Antes de escrever qualquer regra, procure o
-   utilitário do Bootstrap (`d-flex`, `gap-3`, `text-body-secondary`, `border-top`, `py-4`). O
-   `<style>` do template já tem o que é genuinamente impossível por utilitário — âncora sob navbar
-   fixa, posição do botão de copiar, e impressão.
-6. **Cor vem de variável do tema**, não de hex: `text-body-secondary`, `bg-body-tertiary`,
-   `var(--bs-border-color)`. Hex cravado é o jeito mais rápido de produzir um documento que parece
-   dois documentos.
-7. **Todo bloco de código declara a linguagem**: `<pre><code class="language-ts">`. Sem a classe, o
-   highlight.js chuta — e chuta diferente em cada bloco.
-8. **Dentro de `<pre><code>`, escape `&` `<` `>`.** Sem exceção. Use o helper:
-   ```bash
-   node ~/.claude/skills/html-explainer-agent-skill/scripts/escape-code.mjs arquivo.ts --lang ts
-   ```
-9. **Todo `id` é único e todo par aba↔painel bate**: `button#tab-x[data-bs-target="#pane-x"][aria-controls="pane-x"]`
-   ↔ `div#pane-x[aria-labelledby="tab-x"]`. Um `id` repetido faz a aba errada abrir.
-10. **Não reimplemente comportamento que o Bootstrap já dá.** Navegação por seta/Home/End no
-    tablist, `show/hide` de aba, colapso do accordion, foco do modal — tudo já vem no
-    `bootstrap.bundle.min.js`. *Ressalva:* o runtime do construtor de prompt é JS próprio porque o
-    Bootstrap não tem nada equivalente — não é reimplementação, é a única exceção.
+1. **Renderização é delegada. Sempre.** Esta skill não emite HTML. Se você se pegou escrevendo
+   `<div>`, parou de seguir a skill.
+2. **Sem nível de leitor declarado, não há explicação** — há despejo de informação.
+3. **Toda buzzword declarada é definida onde aparece.** É o gate que esta skill existe para não
+   falhar.
+4. **Toda figura carrega uma afirmação** na legenda, e **toda aresta carrega um rótulo**.
+5. **Mermaid é gate duro:** todo diagrama renderiza nas paletas clara **e** escura antes de a UI
+   abrir. `Syntax error in text`, SVG vazio ou `aria-roledescription="error"` = não entregável.
+6. **A resposta vem antes do contexto.** A primeira coisa visível responde o título.
+7. **Não prometa ganho pedagógico** (R10). A base fecha em g = 0,37 global e cai para g = 0,27 em
+   mídia auto-ritmada — que é o caso de um documento que a pessoa lê no próprio ritmo.
+8. **Nada decorativo.** Três dos quinze princípios de Mayer são nulos ou negativos: redundância
+   d = 0,10, imagem do apresentador d = 0,20, imersão 3D/VR d = **−0,10**. Mais rico não é melhor.
+9. **Marque o que envelhece** — data e versão contra a qual o conteúdo vale.
+10. **Distinga lastro de ofício.** Regra com número vem de `didatica.md`; regra sem número é
+    convenção ou ofício, e não deve ser vendida como ciência.
 
-## O que o runtime do template já resolve
+## Quando NÃO usar esta skill
 
-Não reescreva isto; é o `<script>` no fim do arquivo.
-
-- **Código-fonte cru capturado antes do highlight** — o botão copia o código, não os `<span>` do
-  destaque nem os números de linha.
-- **Botão de copiar em todo `<pre><code>`**, com `navigator.clipboard` quando há contexto seguro e
-  fallback `document.execCommand('copy')` quando não há. **O fallback não é opcional**: em `file://`
-  e em `http://` puro o `navigator.clipboard` pode simplesmente não existir, e chamar
-  `.writeText()` nele estoura `TypeError` — não é uma promise rejeitada que dá para capturar com
-  `.catch()`.
-- **Aba ↔ URL nos dois sentidos**: abrir `arquivo.html#pane-armadilhas` já abre naquela aba; trocar
-  de aba atualiza o hash via `history.replaceState` (usar `location.hash` faria a página pular).
-  Hash apontando para um `<h2>` dentro de um painel abre o painel e rola até o título.
-- **Impressão/PDF com todas as abas abertas** — `@media print` desdobra os painéis e imprime o
-  rótulo de cada um. Sem isso, o PDF sai com uma aba só.
-- **Dois ganchos para o construtor de prompt** — a única mudança que esse `<script>` já sofreu, e
-  ela está lá mesmo quando não há construtor no documento:
-  - `data-live` faz o laço que guarda a fonte crua **pular** blocos cujo texto muda em runtime. O
-    cache é tirado uma vez só, no `load`; sem a exclusão, o botão de copiar entregaria para sempre
-    o prompt do momento em que a página abriu.
-  - `window.__explainerCopy` expõe o caminho de cópia — `navigator.clipboard` com o fallback
-    `execCommand` — para o botão grande do construtor reusar, em vez de manter uma segunda
-    implementação da mesma coisa em outro lugar do arquivo.
+- O destino é `README.md`, `docs/` ou wiki → lá o formato esperado é Markdown.
+- É página de produto, landing, app com estado, site com build → outro problema, outra ferramenta.
+- É um plano de implementação para aprovar → invoque `plannotator-visual-explainer` direto, na rota
+  de plano, com `--gate`. Esta skill é sobre **entender**, não sobre **aprovar**.
+- É uma resposta de duas frases → responda em duas frases.
 
 ## Fora do básico
 
-Leia o arquivo de referência **quando o caso aparecer** — não precisa carregar tudo sempre.
-
 | Preciso de… | Leia |
 |---|---|
-| URL/versão/SRI exatos, jsDelivr × cdnjs × unpkg, adicionar linguagem ao highlight | `references/cdn.md` |
-| Abas aninhadas, `nav-pills` vertical, abas com badge, sincronizar N grupos de aba (trocar "Python" em todos os blocos de uma vez) | `references/tabs.md` |
-| Prism em vez de highlight.js, números de linha, destacar linha específica, diff, terminal falso, código longo com rolagem | `references/code-blocks.md` |
-| Qual componente Bootstrap usar para cada coisa (alert, accordion, card, table, offcanvas, badge, TOC/scrollspy) | `references/components.md` |
-| Aba que monta um prompt XML ao vivo: perguntas em `radio`/`checkbox`/`text`, esqueleto em `<template>`, botão de copiar | `references/prompt-builder.md` |
-| Deu errado / vai dar errado | `references/pitfalls.md` |
-| Como escrever o texto: ordem, densidade, títulos, o que cortar | `references/writing.md` |
+| Por que cada regra existe, com número, ressalva e fonte | `references/didatica.md` |
+| Que figura para que conteúdo; invariantes de Mermaid; o gate de renderização | `references/diagramas.md` |
+| Como definir jargão, sigla e palavra vaga — e onde | `references/buzzwords.md` |
+| Plannotator ausente, travado, quebrado; instalar em todos os agent skill dirs; segurança | `references/plannotator.md` |
 
 ## Antes de entregar — checklist
 
-- [ ] `check-doc.mjs` passou sem erro.
-- [ ] Abri o arquivo no navegador e cliquei em **todas** as abas.
-- [ ] Cliquei em um botão de copiar e colei em algum lugar.
-- [ ] A primeira aba, sozinha, já responde a pergunta do título.
-- [ ] Nenhuma linha de CSS que um utilitário do Bootstrap resolveria.
-- [ ] Nenhum `TODO`, `«placeholder»` ou aba de exemplo do template sobrando.
-- [ ] O arquivo abre por `file://` — testei com duplo clique, não por servidor local.
-- [ ] **Se há construtor:** cliquei em cada `radio` e cada `checkbox`, vi o prompt mudar a cada
-  clique, e copiei o resultado. O prompt que já estava no bloco antes do primeiro clique — o que
-  sai no PDF e o que vê quem está sem JavaScript — é byte a byte o que o construtor entrega,
-  porque é o próprio runtime que o calcula na hora de gerar o arquivo.
+- [ ] `plannotator-setup.sh` saiu 0.
+- [ ] O BRIEF tem nível de leitor declarado e portão de complexidade decidido.
+- [ ] Toda buzzword da tabela está definida na **primeira** ocorrência no documento final — e
+      definida **uma vez só**.
+- [ ] Toda figura tem legenda com uma afirmação; toda aresta tem rótulo.
+- [ ] O caminho crítico está sinalizado na figura **e** apontado por uma frase no texto.
+- [ ] Todo diagrama renderizou nas duas paletas, sem exceção e sem SVG vazio.
+- [ ] O andaime do novato está dobrável, não ausente.
+- [ ] A primeira tela responde o título sozinha.
+- [ ] Nada de decorativo, nada de duplicado, nada de "é importante notar que".
+- [ ] Foi entregue por `plannotator annotate`, e as anotações que voltaram foram tratadas.

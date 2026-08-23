@@ -1,39 +1,40 @@
 # html-explainer-agent-skill
 
-Uma [Agent Skill](https://code.claude.com/docs/en/skills) que faz um agente de código **parar de
-responder em Markdown** e entregar **um arquivo `.html`** — conteúdo separado em abas, tema escuro,
-código destacado com botão de copiar, tudo por CDN.
+Uma [Agent Skill](https://code.claude.com/docs/en/skills) que faz um agente de código **explicar
+de verdade**: com diagramas, com as buzzwords definidas onde aparecem, e com o andaime calibrado
+pelo nível de quem vai ler.
 
-Sem `npm install`, sem bundler, sem pasta de assets. Um arquivo que abre com duplo clique, vai por
-anexo de e-mail e funciona offline no navegador de quem receber.
+A skill **não desenha HTML**. Ela escreve o **BRIEF DIDÁTICO** e delega a renderização e a entrega
+para a skill [`plannotator-visual-explainer`](https://github.com/backnotprop/plannotator), que abre
+o resultado na UI de anotação do [Plannotator](https://plannotator.ai) — onde a pessoa lê, anota, e
+a anotação volta para o agente.
 
-**[▶ Veja o documento de exemplo ao vivo](https://frederico-kluser.github.io/html-explainer-agent-skill/html-explainer-agent-skill/assets/example.html)** — ele é a saída da skill, e explica a skill.
+> **v2.0.0 — mudança de rumo.** A v1 era um gerador de HTML: template Bootstrap, abas, tema escuro,
+> linter, construtor de prompt. Isso saiu inteiro. O que ficou — e cresceu — é a parte que decide
+> **o que** explicar, **como** desenhar e **quanto** andaime dar. Quem compõe o HTML agora é a skill
+> de render; quem entrega é o Plannotator.
 
-![exemplo](docs/preview.png)
+## O problema que ela resolve
 
-## O problema
+Um agente que "explica" costuma despejar prosa: parágrafos sobre um fluxo que caberia num
+diagrama, termos técnicos usados sem definição, e o mesmo nível de detalhe para quem nunca viu o
+assunto e para quem o mantém há três anos.
 
-Markdown empilha tudo numa coluna infinita. Quando a explicação tem mais de um eixo — a visão geral,
-o código, o passo a passo, as armadilhas, cada linguagem, cada ambiente — o leitor rola procurando.
+Esta skill obriga três decisões antes da primeira linha:
 
-**Aba é o índice que não sai da tela.** E um `.html` de arquivo único é a única forma de entregar
-isso sem exigir build, servidor ou repositório do outro lado.
+1. **Quem lê** — novato, intermediário, experiente ou misto. Governa todo o resto.
+2. **O assunto é complexo ou definicional** — porque as regras se **invertem** entre os dois.
+3. **O que vira figura, e qual figura** — com a afirmação da legenda escrita antes do desenho.
 
 ## O que a skill entrega
 
 | | |
 |---|---|
-| **Template pronto** | `assets/template.html` — CDN com SRI conferido, estrutura de abas com ARIA correta, runtime de highlight + cópia + deep-link. Copiar e preencher. |
-| **Exemplo completo** | `assets/example.html` — um documento de verdade usando todos os padrões que descreve. É a demonstração e a documentação. |
-| **Linter** | `scripts/check-doc.mjs` — reprova par ARIA quebrado, duas abas ativas, `<` não escapado, versão flutuante de CDN, arquivo externo ao lado. |
-| **Gerador** | `scripts/new-doc.mjs "Título" saida.html --tabs "A,B,C"` — monta a casca com os `id`/`aria-*` já pareados. |
-| **Escapador** | `scripts/escape-code.mjs arquivo.ts --lines 40-58` — vira um `<pre><code>` pronto para colar. |
-| **Construtor de prompt** | `assets/prompt-builder.html` — uma aba que remonta um prompt XML ao vivo a partir de perguntas em radio/checkbox. Opcional, e só sob pedido. |
-| **Gerador do construtor** | `scripts/new-builder.mjs spec.xml --into doc.html` — enxerta essa aba num documento já pronto; `--force` regera, idempotente. |
-| **Referências** | CDN e SRI · abas e ARIA · blocos de código · componentes Bootstrap · armadilhas · como escrever o texto. |
-
-Tudo em `references/` é lido sob demanda: o `SKILL.md` é curto e aponta para o arquivo certo quando
-o caso aparece.
+| **BRIEF DIDÁTICO** | O artefato: leitor, portão de complexidade, tabela fechada de buzzwords, uma figura por afirmação com rótulo em toda aresta, caminho crítico sinalizado, andaime dobrável. |
+| **Base didática citada** | `references/didatica.md` — 10 regras, cada uma com número, ressalva e fonte. E a lista honesta do que **não** tem lastro. |
+| **Escolha de figura** | `references/diagramas.md` — de tipo de conteúdo para tipo de diagrama, invariantes de Mermaid, o gate de renderização nas duas paletas. |
+| **Protocolo de buzzword** | `references/buzzwords.md` — o que conta como jargão, as três formas de definir, e o gate de cobertura. |
+| **Setup do Plannotator** | `scripts/plannotator-setup.sh` — instala binário, skill de render, skill de composição e **destrava a invocação pelo modelo**, em todos os agent skill dirs. Idempotente. |
 
 ## Instalação
 
@@ -43,116 +44,103 @@ cd html-explainer-agent-skill
 ./install.sh
 ```
 
-O instalador cria um **symlink** em cada diretório de agente que existir na máquina — Claude Code,
-Codex, Copilot, OpenCode, Gemini CLI, Cursor. Não copia nada: editar o `SKILL.md` aqui passa a valer
-na hora, em todos, sem deploy.
+O instalador faz duas coisas:
+
+1. Cria `~/.agents/skills` (o canônico, e o único diretório que ele cria) e um **symlink** da skill
+   em cada agent skill dir que **já existir**. A lista é descoberta, não escrita à mão:
+   `~/.agents/skills`, `~/.claude/skills`, `$CLAUDE_CONFIG_DIR/skills`, **todo** `~/.claude-*/skills`
+   presente (é assim que o harness **dsh** e qualquer perfil extra entram sozinhos), mais Codex,
+   Copilot, OpenCode, Gemini CLI, Cursor e Kiro. Não copia: editar o `SKILL.md` aqui vale na hora,
+   em todos. Diretório que não existe é pulado — não inventamos árvore de agente que ninguém usa.
+2. Roda `plannotator-setup.sh --install` — **o Plannotator não é opcional**, é quem entrega. O
+   binário vem do instalador oficial em modo `--minimal`: só o executável, sem escrever hook ou
+   configuração em nenhum harness.
 
 ```bash
-./install.sh --check       # o que faria, sem alterar nada
-./install.sh --uninstall   # remove os links (nunca toca em diretório real)
+./install.sh --check           # relata, não escreve
+./install.sh --no-plannotator  # só os links
+./install.sh --uninstall       # remove os links (nunca toca em diretório real)
 ```
 
-Depois é só pedir em linguagem natural — *"me explica isso num HTML"*, *"monta um documento em
-abas"*, *"documenta essa API"* — que a skill dispara sozinha.
+A descoberta vive em `html-explainer-agent-skill/scripts/agent-dirs.sh` — **fonte única**, lida
+pelo `install.sh` e pelo `plannotator-setup.sh`. Um diretório fora do padrão entra por
+`HX_EXTRA_AGENT_DIRS` (separado por `:`).
 
-## Uso direto, sem agente
+O `install.sh` **propaga o veredito**: sai diferente de 0 se pulou algum link ou se o setup do
+Plannotator não completou, para que `./install.sh && algo` não minta em CI.
 
-Os scripts funcionam como ferramenta de linha de comando (Node ≥ 18, zero dependências):
+## O Plannotator
 
 ```bash
-node html-explainer-agent-skill/scripts/new-doc.mjs "Como o cache invalida" ./cache.html \
-     --tabs "Resposta,Como funciona,Armadilhas" --sub "v3 · jul/2026"
-
-# preencha o conteúdo…
-
-node html-explainer-agent-skill/scripts/check-doc.mjs ./cache.html
+bash html-explainer-agent-skill/scripts/plannotator-setup.sh            # relata
+bash html-explainer-agent-skill/scripts/plannotator-setup.sh --install  # instala/repara
+bash html-explainer-agent-skill/scripts/plannotator-setup.sh --json     # para máquina
 ```
 
-```
-✓ cache.html — sem problemas
-```
+Exit: **0** pronto · **1** falta algo mas dá para instalar · **2** falta algo e não dá.
 
-**Rodar os scripts** e **rodar a suíte** pedem coisas diferentes, e vale separar. Os quatro
-scripts (`new-doc`, `new-builder`, `check-doc`, `escape-code`) não usam nenhuma API posterior ao
-Node 18 — em Node 18 puro eles funcionam. O `">=18.20.8"` do `engines` é o piso da **suíte de
-testes**, medido: no 18.0.0 o `node --test` nem existe; no 18.9.0 o runner sai **verde rodando
-só 4 dos 332 testes** (o pior desfecho possível); no 18.13.0 as aspas angulares (`«`) das
-mensagens do linter estouram o lexer TAP. O 18.20.8 é o menor valor testado que se comporta, e um
-`pretest` aborta com mensagem explícita abaixo dele.
+Quatro peças, nenhuma sobra: o **binário**, a skill **`plannotator-visual-explainer`**, a skill
+**`visual-explainer`** (nicobailon, quem de fato compõe o HTML) e o **destrave** — a skill de render
+chega com `disable-model-invocation: true` e, travada, a delegação vira uma ordem impossível de
+cumprir.
 
-## Construtor de prompt — opcional, e só sob pedido
+Três coisas que você deveria saber antes de rodar, e que estão detalhadas em
+`references/plannotator.md`:
 
-Uma **aba a mais**, que remonta um prompt XML ao vivo a partir de perguntas em `radio`/`checkbox`:
-o leitor clica, o bloco de código muda, o botão grande copia. Documento normal **não** tem
-construtor — ele entra quando pedem "construtor de prompts", "prompt configurável", "montar o
-prompt clicando".
+- **o binário vem de `curl | bash`** (o instalador oficial confere o SHA256; há caminho manual se a
+  sua política não aceita);
+- **o destrave torna uma skill de terceiro invocável pelo modelo** nos seus agentes — é o preço de a
+  delegação funcionar sem você pedir;
+- **`visual-explainer` é clonada de `main`, sem pin** — trave numa revisão auditada com `HX_VE_REF`.
 
-**[▶ Veja um construtor ao vivo](https://frederico-kluser.github.io/html-explainer-agent-skill/html-explainer-agent-skill/assets/prompt-builder.html)** — `assets/prompt-builder.html`, ao lado do exemplo.
+Toda cópia instalada leva um `.installed-by-html-explainer`, e o `--uninstall` só remove o que tem
+essa marca: uma instalação sua, feita por outro caminho e editada à mão, sobrevive.
 
-Atalho de uma linha, com a spec de planejamento padrão:
+## A base didática, em uma tela
+
+Levantada em 2026-08-22 por uma rodada de pesquisa com **verificação adversarial**: 29 fontes, 140
+afirmações extraídas, 25 submetidas a três verificadores instruídos a **refutar**, 14 sobreviventes.
+
+| Regra | Força | Ancora em |
+|---|---|---|
+| Figura + texto, nunca prosa pura | forte | princípio multimídia; "large, consistent effects for text + diagrams" |
+| Nível do leitor declarado; na dúvida, mais andaime | forte | reversão por expertise: novato d = +0,505 · experiente d = −0,428 |
+| Conteúdo definicional pede pergunta, não exemplo pronto | forte | *reverse worked example effect* em baixa interatividade de elementos |
+| Sinalizar o crítico — no texto **e** na figura | forte | g+ = 0,53 retenção · k = 209, o maior do corpus |
+| Rótulo curto dentro da figura | forte (com teto) | split-attention g = 0,63; proximidade é U-invertido |
+| Texto que redescreve a figura se apaga | médio | redundância d = 0,10 |
+| Segmentar com título próprio | médio (escopo duvidoso) | d = 0,32/0,36 — mas medido só em mídia transiente |
+| Nada decorativo | forte | imagem d = 0,20 · imersão 3D/VR d = **−0,10** |
+| Andaime dobrado, nunca omitido | médio | *guidance-fading* |
+| Não prometer ganho | forte | g = 0,37 global; **0,27** em mídia auto-ritmada |
+
+A calibragem que atravessa todas: documento estático auto-ritmado é o **lado fraco** do moderador de
+ritmo. O contrapeso é que explicação técnica é material de alta interatividade de elementos — o
+moderador mais forte de toda a literatura (g = 0,70 contra 0,20).
+
+**Metade da pergunta ficou sem lastro** e está marcada como tal: escolha do tipo de diagrama,
+Feynman, analogia/*structure-mapping*, *curse of knowledge*, jargão inline vs. glossário, prática de
+recuperação em documento estático, e qualquer evidência sobre explicação gerada por LLM. As regras
+que vêm dessas áreas aparecem como **CONVENÇÃO** (Diátaxis, Google, Mermaid) ou **OFÍCIO**, nunca
+como ciência. Fontes e ressalvas completas em `references/didatica.md`.
+
+## Testes
 
 ```bash
-node html-explainer-agent-skill/scripts/new-doc.mjs "Plano da migração" ./plano.html --builder
+npm test          # node --test, sem rede, sem tocar no $HOME de verdade
 ```
 
-```
-./plano.html criado — 3 abas: #pane-visao-geral #pane-como-fazer #pane-armadilhas
-  + aba "Construtor" (#pane-pb-plano) com o construtor #pb-plano — spec padrão (planejamento)
-```
+Vinte e dois casos, nenhum tocando a rede nem o `$HOME` de verdade: onde o script baixaria, os
+testes apontam `HX_INSTALL_URL`, `HX_PLANNOTATOR_REPO` e `HX_VE_REPO` para um `file://` — é assim
+que `fetch_skill` e `install_bin`, os dois únicos caminhos que baixam e dão `rm -rf`, ficam
+cobertos. O ambiente é montado por allowlist, para que um `HX_*` exportado no shell de quem roda
+não vire um verde falso.
 
-Ou o fluxo mais comum — documento primeiro, construtor depois, com as perguntas que o caso pede:
-
-```bash
-node html-explainer-agent-skill/scripts/new-builder.mjs --example > spec.xml   # edite as perguntas
-node html-explainer-agent-skill/scripts/new-builder.mjs spec.xml --into ./plano.html
-node html-explainer-agent-skill/scripts/check-doc.mjs ./plano.html
-```
-
-```
-./plano.html — aba "Construtor" (#pane-pb-revisao) com o construtor #pb-revisao
-```
-
-**Os dois caminhos não dão o mesmo `id`, e isso é esperado.** `--builder` sem `--spec` usa a spec
-padrão de planejamento e produz `#pane-pb-plano`; a spec de `--example` declara `id="revisao"` e
-produz `#pane-pb-revisao`. O `id` sai da spec, não do comando.
-
-## O que está dentro do documento gerado
-
-- `<html data-bs-theme="dark">` + `<meta name="color-scheme" content="dark">` — escuro de verdade,
-  sem flash branco e sem alternador de tema.
-- **Bootstrap 5.3.8** por jsDelivr, **highlight.js 11.11.1** por cdnjs, ambos com `integrity` +
-  `crossorigin` e **versão travada** — versão flutuante quebra o SRI no dia do release.
-- **Botão de copiar** em cada bloco, com `navigator.clipboard` quando há contexto seguro e fallback
-  `execCommand` quando não há. O texto cru é capturado *antes* do highlight, para não colar os
-  números de linha junto.
-- **Aba ↔ URL nos dois sentidos**: `arquivo.html#pane-armadilhas` abre naquela aba; trocar de aba
-  atualiza o hash sem fazer a página pular.
-- **Impressão com todas as abas abertas** — sem isso, o PDF de um documento de 5 abas sai com 1.
-
-## Verificado, não presumido
-
-Os números da documentação foram medidos em Chromium/Brave sobre `file://`, não copiados de blog.
-Três exemplos:
-
-- **Diagrama em aba escondida quebra.** Mermaid 11.16, dois diagramas idênticos: no painel visível o
-  SVG sai com `viewBox="0 0 340.45 70"`; no painel escondido, `viewBox="-8 -8 16 16"` — uma caixa de
-  16×16, porque `getBBox()` devolve zero dentro de `display: none`. A correção (renderizar no
-  `shown.bs.tab`) está no exemplo e devolve `viewBox="0 0 332.75 70"`.
-- **`file://` é contexto seguro no Chromium** — `window.isSecureContext === true` e
-  `navigator.clipboard` existe. O fallback do botão de copiar continua necessário, mas por causa de
-  `http://` em IP de rede local, não do `file://`. Metade dos tutoriais erra nisso.
-- **O construtor não mente para quem não tem JavaScript.** O prompt que já está no bloco antes de
-  qualquer clique — o que sai no PDF e o que vê quem abriu com JS desligado — é **byte a byte** o
-  que o construtor entrega no primeiro clique: 1086 bytes idênticos dos dois lados, em `file://` e
-  em `http://`. Não é coincidência mantida à mão: é o próprio runtime do documento que calcula esse
-  texto na hora de gerar o arquivo, e o teste morre se um caractere ou um espaço de indentação
-  divergir.
-
-## Quando *não* usar
-
-Página de produto, landing, aplicação com estado, site com build — e o caso em que o arquivo vai
-virar `README.md` ou entrar em `docs/`. Na dúvida entre `.md` e `.html`: se é para **ler**, HTML;
-se é para **versionar e revisar em PR**, Markdown.
+Cobrem: destrave do frontmatter, espalhamento por symlink, idempotência observável, preservação de
+diretório real **e** de symlink apontando para um fork, recusa de sobrescrever cópia sem a marca de
+autoria, desinstalação que só remove o que instalou, os três vereditos (0/1/2), o estado
+`quebrado`, `--help` inteiro, e a regressão do `install.sh` numa máquina sem `~/.agents/skills`.
+Node ≥ 18.20.8.
 
 ## Licença
 

@@ -1,22 +1,25 @@
 {
-"name": "html-explainer-agent-skill",
-  "version": "1.1.0",
-  "description": "Skill do pi coding agent: explicar/documentar com UM arquivo .html em abas, tema escuro, Bootstrap 5 CDN, destaque de sintaxe e botão copiar.",
+  "name": "html-explainer-agent-skill",
+  "version": "2.0.0",
+  "description": "Agent skill: explica um assunto com diagramas, buzzwords definidas onde aparecem e andaime calibrado pelo nivel do leitor — e delega a renderizacao e a entrega para a skill plannotator-visual-explainer.",
   "license": "MIT",
   "private": false,
   "type": "module",
   "scripts": {
-    "pretest": "node -e \"const [a,b,c]=process.versions.node.split('.').map(Number); if (a<18||(a===18&&(b<20||(b===20&&c<8)))) { console.error('html-explainer-agent-skill: a suite de testes exige Node >= 18.20.8. Em 18.0 o --test nem existe; em 18.9 o runner roda so uma fracao dos testes e ainda assim sai VERDE (o pior dos casos: a suite parece passar sem ter rodado); em 18.13 o lexer TAP estoura nas aspas angulares das mensagens do linter. Node atual: '+process.versions.node); process.exit(1); }\"",
+    "pretest": "node -e \"const [a,b,c]=process.versions.node.split('.').map(Number); if (a<18||(a===18&&(b<20||(b===20&&c<8)))) { console.error('html-explainer-agent-skill: a suite de testes exige Node >= 18.20.8. Em 18.0 o --test nem existe; em 18.9 o runner roda so uma fracao dos testes e ainda assim sai VERDE (o pior dos casos: a suite parece passar sem ter rodado); e o test.after() usado no teardown dos diretorios temporarios so e confiavel a partir do 18.20. Node atual: '+process.versions.node); process.exit(1); }\"",
     "test": "node --test"
   },
   "keywords": [
     "pi-package",
     "agent-skills",
-    "html",
     "explainer",
+    "didactics",
+    "diagrams",
+    "mermaid",
+    "plannotator",
+    "visual-explainer",
     "documentation",
-    "tabs",
-    "bootstrap"
+    "cognitive-load"
   ],
   "homepage": "https://github.com/frederico-kluser/html-explainer-agent-skill#readme",
   "repository": {
@@ -29,8 +32,7 @@
   "files": [
     "html-explainer-agent-skill/",
     "install.sh",
-    "README.md",
-    "docs/"
+    "README.md"
   ],
   "pi": {
     "skills": [
