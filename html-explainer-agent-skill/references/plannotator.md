@@ -184,3 +184,4 @@ Do lado desta skill: `HX_PLANNOTATOR_BIN` (executável explícito) · `HX_PLANNO
 | Instalou como root | o instalador não tem guarda de EUID; foi para `/root/.local/bin` | instale como o usuário de verdade |
 | Navegador não abre | sessão sem display | `plannotator sessions --open 1`, ou `PLANNOTATOR_BROWSER` |
 | Diagrama sai com `Syntax error in text` | Mermaid inválido | é gate duro: conserte e re-renderize nas duas paletas antes de abrir a UI |
+| Item do diagrama com fundo preto e texto quase transparente (ilegível) | `themeVariables` dark com `primaryTextColor` ≈ background (par invertido) | patch de contraste do `plannotator-setup.sh --install`, ou corrija o tema manualmente (fundo escuro + texto claro) e re-renderize nas duas paletas |

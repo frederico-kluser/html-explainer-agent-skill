@@ -35,6 +35,18 @@
 # do binário. Quem QUISER a integração completa pede: HX_PLANNOTATOR_FULL=1.
 # Nunca sudo. Nunca npm -g. Nunca sobrescreve o que não instalou.
 #
+# CONTRASTE DO TEMA DARK: a skill de render (v0.27.6) prescreve, em
+# `references/theme-override.md`, um tema dark Mermaid com o par invertido
+# (primaryColor roxo-claro '#9a9dff' + primaryTextColor quase-preto '#070b14'
+# sobre um background quase-preto), que nasce com itens de fundo preto e texto
+# quase transparente. No modo --install, o script aplica um patch idempotente
+# que troca para o padrão legível (fundo ESCURO + texto CLARO). Só toca o
+# arquivo instalado pelo próprio script no canônico — nunca o repositório de
+# origem — e não inventa linhas novas. O patch PULSA qualquer cópia que não
+# carregue a marca de autoria ($MARK): um diretório sem a marca foi instalado
+# por outro caminho (ex.: pelo próprio instalador do Plannotator) e pode ter
+# edições locais, então fica intocado.
+#
 # Ambiente:
 #   HX_PLANNOTATOR_BIN        caminho explícito do executável (vence o PATH)
 #   HX_PLANNOTATOR_INSTALL=0  proíbe instalar o binário mesmo com --install
@@ -234,6 +246,46 @@ count_linked() {
   printf '%s' "$n"
 }
 
+# --- tema dark (contraste) ---------------------------------------------------
+# Corrige o par invertido que a skill de render (v0.27.6) prescreve no tema dark
+# do Mermaid em `references/theme-override.md`. No Mermaid 11 com theme 'base',
+# textColor, signalTextColor, labelTextColor, nodeTextColor, classText etc.
+# derivam de primaryTextColor, e o edgeLabelBackground deriva de darken(secondary…).
+# Com primaryColor '#9a9dff' (roxo-claro) + primaryTextColor '#070b14' (quase
+# preto) sobre um background quase preto, vários itens nascem com fundo escuro e
+# texto quase transparente — ilegíveis. O padrão correto é fundo ESCURO + texto
+# CLARO: primaryColor '#1e242e' + primaryTextColor '#dadee5'.
+#
+# Conservador e idempotente: só troca os dois tokens JUNTOS quando o par quebrado
+# existe (trocar só o texto para claro deixaria nó claro + texto claro = ilegível
+# de novo); sem o par quebrado, registra nota e não toca no arquivo. Não inventa
+# linhas novas — o essencial são os dois pares acima.
+patch_theme_contrast() {
+  local dir="$1" file="$1/references/theme-override.md"
+  # Só mexemos no arquivo que ESTE script instalou (sinalizada por $MARK). Um
+  # diretório sem a marca foi criado por outro caminho (ex.: o próprio instalador
+  # do Plannotator) e pode carregar edições locais — tocar nele seria sobrescrever
+  # coisa alheia, o que a política do script proíbe de ponta a ponta.
+  if [[ ! -f "$dir/$MARK" ]]; then
+    NOTES+=("tema não tocado: $dir não foi instalado por este script")
+    return 0
+  fi
+  [[ -f "$file" ]] || { NOTES+=("theme-override.md ausente em $dir — nada a corrigir"); return 0; }
+  if ! grep -q "primaryTextColor: '#070b14'" "$file"; then
+    NOTES+=("tema dark sem primaryTextColor '#070b14' — talvez o upstream tenha mudado o tema; não mexi")
+    return 0
+  fi
+  if ! grep -q "primaryColor: '#9a9dff'" "$file"; then
+    NOTES+=("primaryColor '#9a9dff' não encontrado, mas primaryTextColor '#070b14' presente — tema divergiu; não mexi")
+    return 0
+  fi
+  sed -i \
+    "s/primaryColor: '#9a9dff'/primaryColor: '#1e242e'/; s/primaryTextColor: '#070b14'/primaryTextColor: '#dadee5'/" \
+    "$file"
+  say "  tema dark corrigido em $file (fundo escuro + texto claro)"
+  return 0
+}
+
 # --- avaliação ---------------------------------------------------------------
 evaluate() {
   STATE_BIN="ausente"; STATE_RENDER="ausente"; STATE_VE="ausente"; STATE_UNLOCK="travada"
@@ -317,6 +369,10 @@ if [[ "$MODE" == install ]]; then
     fanout plannotator-visual-explainer
   fi
   [[ "$STATE_VE" == ok ]] && fanout visual-explainer
+  # O patch do tema dark roda em todo --install (skill recém-buscada OU já
+  # instalada de um install anterior): conserta máquinas que já carregam o par
+  # quebrado. Só no --install — check não escreve e uninstall já saiu acima.
+  [[ "$STATE_RENDER" == ok ]] && patch_theme_contrast "$CANON/plannotator-visual-explainer"
   evaluate
 fi
 

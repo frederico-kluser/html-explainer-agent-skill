@@ -74,6 +74,28 @@ A skill `plannotator-visual-explainer` trata isto como **gate duro**, e o BRIEF 
 Diagrama que não renderiza nas duas paletas **não é entregável**. Conserte a sintaxe ou o tema e
 rode de novo — não entregue com a figura quebrada e um pedido de desculpas.
 
+### Renderizar não basta: o diagrama tem de ser LEGÍVEL nas duas paletas
+
+O gate não termina no "sem erro". O que sai da renderização também tem de **se ler** — um SVG que
+existe mas tem texto da mesma cor do fundo é tão não-entregável quanto um que falhou. Em dark mode:
+fundos **escuros**, textos **claros** (e bordas e labels derivados = claros). Em light mode, o
+inverso: fundos claros, textos escuros. Vale para todo texto — nó, rótulo de aresta, mensagem de
+`sequenceDiagram`, mensagem de `stateDiagram`, legenda — com contraste mínimo contra o fundo do item
+(WCAG AA ≈ 4.5:1).
+
+Mermaid, em `theme: 'base'`, **deriva** várias cores de `primaryTextColor` (`textColor`,
+`signalTextColor`, `labelTextColor`, `nodeTextColor`, `classText`, `actorTextColor`,
+`stateLabelColor`…) e o `edgeLabelBackground` de `darken(secondaryColor, …)`. Por isso o par
+`primaryColor`/`primaryTextColor` é a chave: se o primário for uma cor clara e o texto uma cor
+escura **da família do fundo**, os itens nascidos dessa derivação ficam com fundo escuro e texto
+quase transparente.
+
+- ❌ **Ruim:** `primaryColor:'#9a9dff'` (roxo-claro) + `primaryTextColor:'#070b14'` (quase preto)
+  sobre `background:'#070b14'` (quase preto) — nós com texto claro sobre fundo claro ficam
+  ilegíveis, e o texto derivado de `#070b14` sobre os mesmos tons de fundo some.
+- ✅ **Bom:** `primaryColor:'#1e242e'` (fundo escuro) + `primaryTextColor:'#dadee5'` (texto claro)
+  sobre `background:'#070b14'` — fundo escuro, texto claro, contraste de sobra.
+
 ## Quando NÃO desenhar
 
 - O conteúdo é uma **definição** ou um fato isolado → R3 manda perguntar antes de responder, não

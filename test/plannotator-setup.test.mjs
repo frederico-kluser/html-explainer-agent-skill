@@ -33,6 +33,36 @@ description: fake
 # fake
 `;
 
+// O tema dark QUEBRADO que a skill de render (v0.27.6) prescreve: primário
+// roxo-claro + texto quase preto sobre um fundo quase preto — nasce ilegível.
+const THEME_BROKEN = `const mermaidThemeVariables = isDark
+  ? {
+      darkMode: true,
+      primaryColor: '#9a9dff',
+      primaryTextColor: '#070b14',
+      primaryBorderColor: '#343b45',
+      lineColor: '#9da5b2',
+      secondaryColor: '#1e242e',
+      secondaryTextColor: '#dadee5',
+      tertiaryColor: '#1e242e',
+      tertiaryTextColor: '#dadee5',
+      background: '#070b14',
+    }
+  : { /* light ok */ };
+`;
+
+// O tema dark SAUDÁVEL (fundo escuro + texto claro, sem o par quebrado): o patch
+// não deve encostar nele.
+const THEME_HEALTHY = `const mermaidThemeVariables = isDark
+  ? {
+      darkMode: true,
+      primaryColor: '#1e242e',
+      primaryTextColor: '#dadee5',
+      background: '#070b14',
+    }
+  : { /* light ok */ };
+`;
+
 const FAKE_BIN = (v) => `#!/usr/bin/env bash
 case "\${1:-}" in
   --version) echo "plannotator ${v}" ;;
@@ -105,12 +135,19 @@ function run(home, args = [], extraEnv = {}) {
 }
 
 // Repo git local com a skill dentro, servido por file:// — o que substitui o
-// GitHub nos testes de fetch_skill.
-function repoFalso(caminhoDaSkill, { tag = null } = {}) {
+// GitHub nos testes de fetch_skill. `theme` é o conteúdo de
+// `references/theme-override.md`: quando presente, o arquivo (que é o alvo real
+// do patch de contraste) é criado já com esse conteúdo dentro da skill.
+function repoFalso(caminhoDaSkill, { tag = null, theme = null } = {}) {
   const raiz = temp('hx-git-');
   const alvo = join(raiz, caminhoDaSkill);
   mkdirSync(alvo, { recursive: true });
   writeFileSync(join(alvo, 'SKILL.md'), LOCKED_SKILL);
+  if (theme !== null) {
+    const refs = join(alvo, 'references');
+    mkdirSync(refs, { recursive: true });
+    writeFileSync(join(refs, 'theme-override.md'), theme);
+  }
   const g = (...a) => execFileSync('git', ['-C', raiz, ...a], { stdio: 'pipe' });
   g('init', '-q', '-b', 'main');
   g('add', '-A');
@@ -258,6 +295,93 @@ test('fetch_skill NÃO sobrescreve um destino que não tem a marca', () => {
   });
   assert.ok(existsSync(join(alheio, 'MINHAS-NOTAS.md')), 'a edição local sobreviveu');
   assert.match(stdout, /não foi instalado por este script/);
+});
+
+// ------------------------------------------------------- tema dark (contraste)
+
+test('--install corrige o tema dark QUEBRADO do theme-override.md instalado', () => {
+  const home = fakeHome({ withRender: false, withVe: false });
+  const renderRepo = repoFalso('apps/skills/extra/plannotator-visual-explainer', { theme: THEME_BROKEN });
+  const { code, stdout } = run(home, ['--install'], {
+    HX_PLANNOTATOR_REPO: renderRepo,
+    HX_VE_REPO: repoFalso('plugins/visual-explainer'),
+  });
+  const file = join(home, '.agents/skills/plannotator-visual-explainer/references/theme-override.md');
+  const conteudo = readFileSync(file, 'utf8');
+  assert.ok(conteudo.includes("primaryColor: '#1e242e'"), 'primário vira o fundo escuro');
+  assert.ok(conteudo.includes("primaryTextColor: '#dadee5'"), 'texto vira o claro legível');
+  assert.ok(!conteudo.includes("primaryColor: '#9a9dff'"), 'o primário quebrado some');
+  assert.ok(!conteudo.includes("primaryTextColor: '#070b14'"), 'o texto quebrado some');
+  assert.match(stdout, /tema dark corrigido/);
+  assert.equal(code, 0);
+});
+
+test('o patch do tema dark é idempotente: segunda rodada não re-aplica nem corrompe', () => {
+  const home = fakeHome({ withRender: false, withVe: false });
+  const renderRepo = repoFalso('apps/skills/extra/plannotator-visual-explainer', { theme: THEME_BROKEN });
+  const env = {
+    HX_PLANNOTATOR_REPO: renderRepo,
+    HX_VE_REPO: repoFalso('plugins/visual-explainer'),
+  };
+  run(home, ['--install'], env);
+  const file = join(home, '.agents/skills/plannotator-visual-explainer/references/theme-override.md');
+  const primeira = readFileSync(file, 'utf8');
+  const { code, stdout } = run(home, ['--install'], env);
+  const segunda = readFileSync(file, 'utf8');
+  assert.equal(primeira, segunda, 'o conteúdo fica estável entre rodadas');
+  assert.ok(segunda.includes("primaryColor: '#1e242e'"));
+  assert.ok(segunda.includes("primaryTextColor: '#dadee5'"));
+  assert.ok(!segunda.includes('#9a9dff'));
+  assert.ok(!segunda.includes("primaryTextColor: '#070b14'"));
+  assert.ok(!/tema dark corrigido/.test(stdout), 'na segunda rodada não re-aplica');
+  assert.equal(code, 0);
+});
+
+test('tema dark JÁ saudável é respeitado: instalado e não corrompido pelo patch', () => {
+  const home = fakeHome({ withRender: false, withVe: false });
+  const renderRepo = repoFalso('apps/skills/extra/plannotator-visual-explainer', { theme: THEME_HEALTHY });
+  const { code } = run(home, ['--install'], {
+    HX_PLANNOTATOR_REPO: renderRepo,
+    HX_VE_REPO: repoFalso('plugins/visual-explainer'),
+  });
+  const file = join(home, '.agents/skills/plannotator-visual-explainer/references/theme-override.md');
+  assert.equal(readFileSync(file, 'utf8'), THEME_HEALTHY, 'o arquivo fica exatamente como veio');
+  assert.equal(code, 0);
+});
+
+test('--install corrige MÁQUINA JÁ INSTALADA: skill presente com o tema quebrado é corrigida', () => {
+  // O caso da frase "consertar máquinas JÁ instaladas": a skill já existe no
+  // canônico (SKILL.md ok, sem fetch) mas carrega o par quebrado. O --install
+  // dispara o patch mesmo sem buscar nada.
+  const home = fakeHome({ withRender: true, withVe: true });
+  const dir = join(home, '.agents/skills/plannotator-visual-explainer/references');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, 'theme-override.md'), THEME_BROKEN);
+  const { code, stdout } = run(home, ['--install']);
+  const file = join(dir, 'theme-override.md');
+  const conteudo = readFileSync(file, 'utf8');
+  assert.ok(conteudo.includes("primaryColor: '#1e242e'"));
+  assert.ok(conteudo.includes("primaryTextColor: '#dadee5'"));
+  assert.ok(!conteudo.includes('#9a9dff'));
+  assert.match(stdout, /tema dark corrigido/);
+  assert.equal(code, 0);
+});
+
+test('--install NÃO toca o tema de uma skill SEM a marca de autoria', () => {
+  // Caso adversário confirmado em reprodução: a skill de render existe no
+  // canônico SEM a marca (instalada por outro caminho — ex.: pelo próprio
+  // instalador do Plannotator) e carrega o tema quebrado. O patch NÃO pode
+  // reescrever um arquivo alheio mesmo tendo o que corrigir: ele não é nosso.
+  const home = fakeHome({ withRender: true, withVe: true, marcado: false });
+  const dir = join(home, '.agents/skills/plannotator-visual-explainer/references');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, 'theme-override.md'), THEME_BROKEN);
+  const { code, stdout } = run(home, ['--install']);
+  assert.equal(readFileSync(join(dir, 'theme-override.md'), 'utf8'), THEME_BROKEN,
+    'o arquivo alheio fica EXATAMENTE como veio');
+  assert.ok(!stdout.includes('tema dark corrigido'), 'nada de "tema dark corrigido" no stdout');
+  assert.match(stdout, /tema não tocado/);
+  assert.equal(code, 0);
 });
 
 // ------------------------------------------------- install_bin (file://)

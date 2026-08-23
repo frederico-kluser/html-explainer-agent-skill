@@ -175,7 +175,10 @@ feedback para você tratar.
    falhar.
 4. **Toda figura carrega uma afirmação** na legenda, e **toda aresta carrega um rótulo**.
 5. **Mermaid é gate duro:** todo diagrama renderiza nas paletas clara **e** escura antes de a UI
-   abrir. `Syntax error in text`, SVG vazio ou `aria-roledescription="error"` = não entregável.
+   abrir **e tem de ser LEGÍVEL nas duas** — contraste mínimo entre texto e fundo de cada item, e
+   nenhum item com texto ≈ fundo (fundo escuro + texto escuro/claro demais é ilegível). `Syntax
+   error in text`, SVG vazio ou `aria-roledescription="error"` = não entregável, e um item preto
+   com texto quase transparente também.
 6. **A resposta vem antes do contexto.** A primeira coisa visível responde o título.
 7. **Não prometa ganho pedagógico** (R10). A base fecha em g = 0,37 global e cai para g = 0,27 em
    mídia auto-ritmada — que é o caso de um documento que a pessoa lê no próprio ritmo.
@@ -210,7 +213,8 @@ feedback para você tratar.
       definida **uma vez só**.
 - [ ] Toda figura tem legenda com uma afirmação; toda aresta tem rótulo.
 - [ ] O caminho crítico está sinalizado na figura **e** apontado por uma frase no texto.
-- [ ] Todo diagrama renderizou nas duas paletas, sem exceção e sem SVG vazio.
+- [ ] Todo diagrama renderizou **e** é legível nas duas paletas, sem exceção, sem SVG vazio e sem
+      item preto com texto transparente.
 - [ ] O andaime do novato está dobrável, não ausente.
 - [ ] A primeira tela responde o título sozinha.
 - [ ] Nada de decorativo, nada de duplicado, nada de "é importante notar que".
