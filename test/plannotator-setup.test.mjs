@@ -63,6 +63,53 @@ const THEME_HEALTHY = `const mermaidThemeVariables = isDark
   : { /* light ok */ };
 `;
 
+// Upstream DIVERGENTE, caso (a): só o primaryTextColor quebrado, SEM o
+// primaryColor '#9a9dff'. O patch não pode trocar o texto sozinho (deixaria nó
+// claro + texto claro = ilegível de novo): deve registrar a divergência e não
+// tocar.
+const THEME_DIVERGENT_TEXT_ONLY = `const mermaidThemeVariables = isDark
+  ? {
+      darkMode: true,
+      primaryColor: '#1e242e',
+      primaryTextColor: '#070b14',
+      background: '#070b14',
+    }
+  : { /* light ok */ };
+`;
+
+// Upstream DIVERGENTE, caso (b): só o primaryColor '#9a9dff' quebrado, SEM o
+// primaryTextColor '#070b14'. Também não há par quebrado completo → registra e
+// não toca.
+const THEME_DIVERGENT_COLOR_ONLY = `const mermaidThemeVariables = isDark
+  ? {
+      darkMode: true,
+      primaryColor: '#9a9dff',
+      primaryTextColor: '#dadee5',
+      background: '#070b14',
+    }
+  : { /* light ok */ };
+`;
+
+// O par quebrado em ordem INVERTIDA (primaryTextColor antes de primaryColor) e
+// com conteúdo circundante relevante para conferir que o sed NÃO mexe em nada
+// além dos dois tokens (em especial o `background: '#070b14'`, que é o fundo
+// escuro desejado e precisa ficar como está).
+const THEME_REORDERED = `const mermaidThemeVariables = isDark
+  ? {
+      darkMode: true,
+      primaryTextColor: '#070b14',
+      primaryColor: '#9a9dff',
+      primaryBorderColor: '#343b45',
+      lineColor: '#9da5b2',
+      secondaryColor: '#1e242e',
+      secondaryTextColor: '#dadee5',
+      tertiaryColor: '#1e242e',
+      tertiaryTextColor: '#dadee5',
+      background: '#070b14',
+    }
+  : { /* light ok */ };
+`;
+
 const FAKE_BIN = (v) => `#!/usr/bin/env bash
 case "\${1:-}" in
   --version) echo "plannotator ${v}" ;;
@@ -382,6 +429,133 @@ test('--install NÃO toca o tema de uma skill SEM a marca de autoria', () => {
   assert.ok(!stdout.includes('tema dark corrigido'), 'nada de "tema dark corrigido" no stdout');
   assert.match(stdout, /tema não tocado/);
   assert.equal(code, 0);
+});
+
+test('--install com theme-override.md AUSENTE (skill com marca) registra nota e segue, exit 0', () => {
+  // A skill marcada existe no canônico, mas o arquivo de tema não veio (ou foi
+  // apagado). O patch não pode quebrar o --install por causa disso: nota e
+  // segue, exit 0. Cobrir o ramo `[[ -f "$file" ]] ||` do patch.
+  const home = fakeHome({ withRender: true, withVe: true });   // marcado: true
+  const dir = join(home, '.agents/skills/plannotator-visual-explainer');
+  assert.ok(!existsSync(join(dir, 'references', 'theme-override.md')), 'pré-condição: arquivo ausente');
+  const { code, stdout } = run(home, ['--install']);
+  assert.equal(code, 0);
+  assert.ok(!existsSync(join(dir, 'references', 'theme-override.md')), 'o arquivo continua ausente (ninguém inventa linha)');
+  assert.match(stdout, /theme-override\.md ausente/);
+  assert.ok(!stdout.includes('tema dark corrigido'), 'não reporta correção que não houve');
+});
+
+test('--check NÃO toca o theme-override.md, mesmo com tema quebrado numa skill marcada', () => {
+  // A falsificação do contrato: o patch só roda em --install (linha 375). No
+  // --check o arquivo quebrado tem de ficar byte a byte como veio, e o stdout
+  // não pode carregar nota de correção nem de divergência — o patch nem é
+  // avaliado nesse modo.
+  const home = fakeHome({ withRender: true, withVe: true });
+  const dir = join(home, '.agents/skills/plannotator-visual-explainer/references');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, 'theme-override.md'), THEME_BROKEN);
+  const { code, stdout } = run(home, ['--check']);
+  assert.equal(readFileSync(join(dir, 'theme-override.md'), 'utf8'), THEME_BROKEN,
+    '--check não reescreve o tema quebrado');
+  assert.ok(!stdout.includes('tema dark corrigido'));
+  assert.ok(!stdout.includes('tema não tocado'), 'patch não roda em --check — nada de nota de tema');
+  assert.equal(code, 1);   // travada, então --check não é PRONTO
+});
+
+test('upstream divergente (só primaryTextColor quebrado, sem primaryColor) NÃO é tocado', () => {
+  // Trocar o texto para claro sem mexer no primário deixaria nó claro + texto
+  // claro = ilegível de novo. O contrato manda trocar os dois JUNTOS ou nada.
+  const home = fakeHome({ withRender: true, withVe: true });
+  const dir = join(home, '.agents/skills/plannotator-visual-explainer/references');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, 'theme-override.md'), THEME_DIVERGENT_TEXT_ONLY);
+  const { code, stdout } = run(home, ['--install']);
+  assert.equal(readFileSync(join(dir, 'theme-override.md'), 'utf8'), THEME_DIVERGENT_TEXT_ONLY,
+    'arquivo fica EXATAMENTE como veio');
+  assert.match(stdout, /primaryTextColor '#070b14' presente — tema divergiu|primaryColor '#9a9dff' não encontrado/);
+  assert.ok(!stdout.includes('tema dark corrigido'));
+  assert.equal(code, 0);
+});
+
+test('upstream divergente (só primaryColor quebrado, sem primaryTextColor) NÃO é tocado', () => {
+  // Simétrico do caso anterior: desta vez o primaryTextColor '#070b14' não
+  // existe, então o ramo "tema dark sem primaryTextColor" dispara antes mesmo
+  // de avaliar o primaryColor. Arquivo intocado.
+  const home = fakeHome({ withRender: true, withVe: true });
+  const dir = join(home, '.agents/skills/plannotator-visual-explainer/references');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, 'theme-override.md'), THEME_DIVERGENT_COLOR_ONLY);
+  const { code, stdout } = run(home, ['--install']);
+  assert.equal(readFileSync(join(dir, 'theme-override.md'), 'utf8'), THEME_DIVERGENT_COLOR_ONLY,
+    'arquivo fica EXATAMENTE como veio');
+  assert.match(stdout, /tema dark sem primaryTextColor '#070b14'/);
+  assert.ok(!stdout.includes('tema dark corrigido'));
+  assert.equal(code, 0);
+});
+
+test('o sed NÃO altera nada além dos dois tokens (background escuro preservado)', () => {
+  // O sed troca só `primaryColor: '#9a9dff'` e `primaryTextColor: '#070b14'`.
+  // Tudo o mais — em especial o `lineColor '#9da5b2'`, o `background '#070b14'`
+  // (fundo escuro desejado) e o `: { /* light ok */ }` — tem de seguir intacto.
+  const home = fakeHome({ withRender: true, withVe: true });
+  const dir = join(home, '.agents/skills/plannotator-visual-explainer/references');
+  mkdirSync(dir, { recursive: true });
+  const file = join(dir, 'theme-override.md');
+  writeFileSync(file, THEME_BROKEN);
+  run(home, ['--install']);
+  const depois = readFileSync(file, 'utf8');
+  assert.ok(depois.includes("background: '#070b14'"), 'background escuro fica como está (é o que queremos)');
+  assert.ok(depois.includes("darkMode: true"));
+  assert.ok(depois.includes("primaryBorderColor: '#343b45'"));
+  assert.ok(depois.includes("lineColor: '#9da5b2'"));
+  assert.ok(depois.includes(": { /* light ok */ }"), 'o ramo light não é tocado');
+  assert.ok(depois.includes("primaryColor: '#1e242e'"));
+  assert.ok(depois.includes("primaryTextColor: '#dadee5'"));
+  // Só os dois valores do par mudam, nada mais naquela linha ou nas vizinhas.
+  assert.ok(!/primaryColor:\s*'#9a9dff'/.test(depois));
+  assert.ok(!/primaryTextColor:\s*'#070b14'/.test(depois));
+});
+
+test('par quebrado em ordem INVERTIDA (texto antes de cor) ainda é corrigido', () => {
+  // O sed tem os dois `s///` independentes: a ordem no arquivo não importa. Se
+  // o upstream um dia publicar o texto antes da cor, o patch ainda entrega o
+  // par curado.
+  const home = fakeHome({ withRender: true, withVe: true });
+  const dir = join(home, '.agents/skills/plannotator-visual-explainer/references');
+  mkdirSync(dir, { recursive: true });
+  const file = join(dir, 'theme-override.md');
+  writeFileSync(file, THEME_REORDERED);
+  const { code, stdout } = run(home, ['--install']);
+  const depois = readFileSync(file, 'utf8');
+  assert.match(stdout, /tema dark corrigido/);
+  assert.ok(depois.includes("primaryColor: '#1e242e'"));
+  assert.ok(depois.includes("primaryTextColor: '#dadee5'"));
+  assert.ok(!depois.includes("primaryColor: '#9a9dff'"));
+  assert.ok(!depois.includes("primaryTextColor: '#070b14'"));
+  assert.ok(depois.includes("background: '#070b14'"), 'o resto continua intacto');
+  assert.equal(code, 0);
+});
+
+test('--install --json com tema quebrado aplica o patch e devolve JSON válido (exit 0)', () => {
+  // O contrato (g): exit codes preservados e a saída --json continua máquina
+  // legível mesmo quando o patch CURA um tema quebrado. JSON.parse não pode
+  // quebrar, e o exit tem de ser 0 (tudo PRONTO).
+  const home = fakeHome({ withRender: true, withVe: true });
+  const dir = join(home, '.agents/skills/plannotator-visual-explainer/references');
+  mkdirSync(dir, { recursive: true });
+  const file = join(dir, 'theme-override.md');
+  writeFileSync(file, THEME_BROKEN);
+  const { code, stdout } = run(home, ['--install', '--json']);
+  const j = JSON.parse(stdout);   // lança se o JSON vier quebrado
+  assert.equal(j.binario, 'ok');
+  assert.equal(j.render_skill, 'ok');
+  assert.equal(j.invocacao_modelo, 'liberada');
+  assert.equal(j.exit, 0);
+  assert.equal(code, 0);
+  const conteudo = readFileSync(file, 'utf8');
+  assert.ok(conteudo.includes("primaryColor: '#1e242e'"));
+  assert.ok(conteudo.includes("primaryTextColor: '#dadee5'"));
+  assert.ok(!conteudo.includes('#9a9dff'));
 });
 
 // ------------------------------------------------- install_bin (file://)
