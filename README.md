@@ -14,6 +14,12 @@ a anotação volta para o agente.
 > **o que** explicar, **como** desenhar e **quanto** andaime dar. Quem compõe o HTML agora é a skill
 > de render; quem entrega é o Plannotator.
 
+**[▶ Veja a saída da skill](https://frederico-kluser.github.io/html-explainer-agent-skill/EXPLAINER.html)**
+— `EXPLAINER.html` foi gerado pela própria skill, seguindo o próprio procedimento, e explica esta
+mudança. Cinco figuras, cada uma com uma afirmação na legenda; as buzzwords definidas onde
+aparecem; o andaime dobrado para quem já sabe pular. Passou no gate de renderização nas paletas
+clara e escura.
+
 ## O problema que ela resolve
 
 Um agente que "explica" costuma despejar prosa: parágrafos sobre um fluxo que caberia num
