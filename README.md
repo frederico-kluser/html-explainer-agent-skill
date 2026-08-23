@@ -90,7 +90,7 @@ Quatro peças, nenhuma sobra: o **binário**, a skill **`plannotator-visual-expl
 chega com `disable-model-invocation: true` e, travada, a delegação vira uma ordem impossível de
 cumprir.
 
-Três coisas que você deveria saber antes de rodar, e que estão detalhadas em
+Quatro coisas que você deveria saber antes de rodar, e que estão detalhadas em
 `references/plannotator.md`:
 
 - **o binário vem de `curl | bash`** (o instalador oficial confere o SHA256; há caminho manual se a
@@ -98,6 +98,10 @@ Três coisas que você deveria saber antes de rodar, e que estão detalhadas em
 - **o destrave torna uma skill de terceiro invocável pelo modelo** nos seus agentes — é o preço de a
   delegação funcionar sem você pedir;
 - **`visual-explainer` é clonada de `main`, sem pin** — trave numa revisão auditada com `HX_VE_REF`.
+- **o `--install` também aplica um patch de contraste no tema dark dos diagramas Mermaid** (fundo
+  escuro + texto claro), consertando inclusive máquinas já instaladas; se um diagrama sair com um
+  item de fundo preto e texto quase transparente, re-rodar `plannotator-setup.sh --install`. Detalhes
+  do gate de legibilidade em `references/diagramas.md`.
 
 Toda cópia instalada leva um `.installed-by-html-explainer`, e o `--uninstall` só remove o que tem
 essa marca: uma instalação sua, feita por outro caminho e editada à mão, sobrevive.
